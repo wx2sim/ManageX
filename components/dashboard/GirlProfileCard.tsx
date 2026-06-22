@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 export interface GirlProfile {
   id: string;
   name: string;
@@ -22,9 +24,13 @@ export default function GirlProfileCard({ profile, isOpen, onToggleMenu, compact
       <div className="group relative rounded-2xl border border-pink-100 bg-white p-4 shadow-sm shadow-pink-100/50 transition hover:shadow-md">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pink-100 text-sm font-semibold text-pink-700">
+            <Link
+              href={`/girl/${profile.id}`}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pink-100 text-sm font-semibold text-pink-700 transition hover:ring-2 hover:ring-pink-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300"
+              aria-label={`View ${profile.name} profile`}
+            >
               {profile.initials}
-            </div>
+            </Link>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-zinc-950">{profile.name}</p>
               <p className="truncate text-xs text-zinc-500">{profile.status}</p>
@@ -75,9 +81,13 @@ export default function GirlProfileCard({ profile, isOpen, onToggleMenu, compact
     <div className="group relative rounded-[1.75rem] border border-pink-100 bg-white p-6 shadow-[0_20px_60px_rgba(236,72,153,0.08)] transition hover:-translate-y-1 hover:shadow-[0_24px_80px_rgba(236,72,153,0.16)]">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-pink-100 text-xl font-semibold text-pink-700">
+          <Link
+            href={`/girl/${profile.id}`}
+            className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-pink-100 text-xl font-semibold text-pink-700 transition hover:ring-2 hover:ring-pink-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300"
+            aria-label={`View ${profile.name} profile`}
+          >
             {profile.initials}
-          </div>
+          </Link>
           <div>
             <p className="text-lg font-semibold text-zinc-950">{profile.name}</p>
             <p className="text-sm text-zinc-500">{profile.status}</p>

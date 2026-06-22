@@ -42,11 +42,15 @@ export default function Header() {
 
   const handleAvatarClick = () => {
     if (session) {
-      router.push("/dashboard");
+      if (pathname === "/statistics") {
+        router.push("/dashboard");
+      } else {
+        router.push("/statistics");
+      }
       return;
     }
 
-    if (pathname === "/dashboard") {
+    if (pathname === "/dashboard" || pathname === "/statistics") {
       router.push("/login");
       return;
     }

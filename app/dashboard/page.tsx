@@ -5,33 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import GirlProfileCard, { GirlProfile } from "@/components/dashboard/GirlProfileCard";
 import AddGirlModal from "@/components/dashboard/AddGirlModal";
-
-const girlProfiles: GirlProfile[] = [
-  {
-    id: "1",
-    name: "Lina",
-    initials: "L",
-    status: "Active",
-    balance: 182450,
-    debt: 5600,
-  },
-  {
-    id: "2",
-    name: "Maya",
-    initials: "M",
-    status: "Reserved",
-    balance: 97400,
-    debt: 14800,
-  },
-  {
-    id: "3",
-    name: "Sara",
-    initials: "S",
-    status: "Available",
-    balance: 212300,
-    debt: 3200,
-  },
-];
+import { girlProfiles } from "@/components/dashboard/girlData";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -83,8 +57,7 @@ export default function DashboardPage() {
           <div className="space-y-10">
             
 
-            <div className="rounded-4xl border border-pink-100 bg-pink-50 p-6 shadow-sm shadow-pink-200/30">
-              <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
                     <p className="text-sm uppercase tracking-[0.35em] text-pink-600"> Les Filles</p>
@@ -134,7 +107,7 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
-            </div>
+            
           </div>
         </section>
       </div>

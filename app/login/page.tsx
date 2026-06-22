@@ -71,15 +71,13 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(255,182,193,0.35),transparent_35%),linear-gradient(180deg,_#fff5fb_0%,_#fff_55%,_#ffe4f0_100%)] text-zinc-950">
-      <div className="mx-auto flex min-h-screen items-center justify-center px-6 py-16 sm:px-10">
+      <div className="mx-auto flex min-h-screen items-center justify-center px-5 py-5 sm:px-10">
         <div className="w-full max-w-md rounded-[2rem] border border-pink-200/70 bg-white/90 p-10 shadow-[0_40px_120px_rgba(236,72,153,0.14)] backdrop-blur-xl sm:p-12">
-          <div className="space-y-6">
+          <div className="space-y-2">
             <div>
               <p className="text-sm uppercase tracking-[0.35em] text-pink-600">Welcome back</p>
               <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950">Sign in to your workspace</h1>
-              <p className="mt-3 text-sm leading-6 text-zinc-600">
-                Secure access to your dashboard with a polished pink and white login experience.
-              </p>
+              
             </div>
 
             <form onSubmit={signInWithPassword} className="grid gap-4">

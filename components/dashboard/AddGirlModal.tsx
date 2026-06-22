@@ -76,49 +76,44 @@ export default function AddGirlModal({ isOpen, onClose, onSubmit }: AddGirlModal
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-4xl border border-pink-200/70 bg-white/95 shadow-[0_40px_120px_rgba(236,72,153,0.25)] backdrop-blur-xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 flex items-center justify-between border-b border-pink-100/50 bg-white/95 p-6">
-          <h2 className="text-2xl font-semibold text-zinc-950">Add New Girl</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-3 sm:p-4">
+      <div className="w-full max-w-sm rounded-3xl border border-pink-200 bg-white shadow-[0_20px_100px_rgba(236,72,153,0.2)] overflow-visible max-h-[calc(100vh-2rem)] flex flex-col">
+        <div className="flex items-center justify-between border-b border-pink-100 p-4 sm:p-5 shrink-0">
+          <h2 className="text-lg sm:text-xl font-semibold text-zinc-950">Add New Girl</h2>
           <button
             onClick={onClose}
-            className="text-zinc-400 transition hover:text-zinc-600"
+            className="text-lg text-zinc-400 transition hover:text-zinc-600"
             aria-label="Close modal"
           >
             ✕
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 p-6">
+        <form onSubmit={handleSubmit} className="space-y-3 p-4 sm:p-5 overflow-y-auto flex-1">
           {/* Picture Upload */}
-          <div>
-            <label className="block text-sm font-semibold text-zinc-950 mb-2">
-              Profile Picture
-            </label>
-            <div className="flex flex-col items-center gap-3">
-              {previewUrl ? (
-                <img
-                  src={previewUrl}
-                  alt="Preview"
-                  className="h-20 w-20 rounded-full object-cover border-2 border-pink-200"
-                />
-              ) : (
-                <div className="h-20 w-20 rounded-full bg-pink-100 flex items-center justify-center text-2xl text-pink-700">
-                  📷
-                </div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="text-sm text-zinc-600 cursor-pointer"
+          <div className="flex flex-col items-center gap-2">
+            {previewUrl ? (
+              <img
+                src={previewUrl}
+                alt="Preview"
+                className="h-14 w-14 rounded-full object-cover border border-pink-200"
               />
-            </div>
+            ) : (
+              <div className="h-14 w-14 rounded-full bg-pink-100 flex items-center justify-center text-base text-pink-700">
+                👤
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="text-xs text-zinc-600 cursor-pointer"
+            />
           </div>
 
           {/* Name */}
           <div>
-            <label className="block text-sm font-semibold text-zinc-950 mb-2">
+            <label className="block text-xs font-semibold text-zinc-950 mb-1">
               Name *
             </label>
             <input
@@ -126,31 +121,46 @@ export default function AddGirlModal({ isOpen, onClose, onSubmit }: AddGirlModal
               name="name"
               value={formData.name}
               onChange={handleInputChange}
-              placeholder="Enter girl's name"
-              className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm text-zinc-950 placeholder-zinc-400 transition focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-300/50"
+              placeholder="Full name"
+              className="w-full rounded-xl border border-pink-200 bg-white px-3 py-1.5 text-sm text-zinc-950 placeholder-zinc-400 transition focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-300/50"
             />
           </div>
 
-          {/* Age */}
-          <div>
-            <label className="block text-sm font-semibold text-zinc-950 mb-2">
-              Age *
-            </label>
-            <input
-              type="number"
-              name="age"
-              value={formData.age}
-              onChange={handleInputChange}
-              placeholder="Enter age"
-              min="1"
-              max="120"
-              className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm text-zinc-950 placeholder-zinc-400 transition focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-300/50"
-            />
+          {/* Age & Bed Row */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-950 mb-1">
+                Age *
+              </label>
+              <input
+                type="number"
+                name="age"
+                value={formData.age}
+                onChange={handleInputChange}
+                placeholder="Age"
+                min="1"
+                max="120"
+                className="w-full rounded-xl border border-pink-200 bg-white px-3 py-1.5 text-sm text-zinc-950 placeholder-zinc-400 transition focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-300/50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-950 mb-1">
+                Bed *
+              </label>
+              <input
+                type="text"
+                name="bedNumber"
+                value={formData.bedNumber}
+                onChange={handleInputChange}
+                placeholder="Number"
+                className="w-full rounded-xl border border-pink-200 bg-white px-3 py-1.5 text-sm text-zinc-950 placeholder-zinc-400 transition focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-300/50"
+              />
+            </div>
           </div>
 
           {/* Phone */}
           <div>
-            <label className="block text-sm font-semibold text-zinc-950 mb-2">
+            <label className="block text-xs font-semibold text-zinc-950 mb-1">
               Phone *
             </label>
             <input
@@ -158,62 +168,53 @@ export default function AddGirlModal({ isOpen, onClose, onSubmit }: AddGirlModal
               name="phone"
               value={formData.phone}
               onChange={handleInputChange}
-              placeholder="Enter phone number"
-              className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm text-zinc-950 placeholder-zinc-400 transition focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-300/50"
+              placeholder="Phone number"
+              className="w-full rounded-xl border border-pink-200 bg-white px-3 py-1.5 text-sm text-zinc-950 placeholder-zinc-400 transition focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-300/50"
             />
           </div>
 
           {/* Stay Type */}
           <div>
-            <label className="block text-sm font-semibold text-zinc-950 mb-2">
+            <label className="block text-xs font-semibold text-zinc-950 mb-1">
               Stay Type
             </label>
-            <select
-              name="stay"
-              value={formData.stay}
-              onChange={handleInputChange}
-              className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm text-zinc-950 transition focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-300/50"
-            >
-              <option value="permanent">Permanent</option>
-              <option value="temporary">Temporary</option>
-            </select>
-          </div>
-
-          {/* Bed Number */}
-          <div>
-            <label className="block text-sm font-semibold text-zinc-950 mb-2">
-              Bed Number *
-            </label>
-            <input
-              type="text"
-              name="bedNumber"
-              value={formData.bedNumber}
-              onChange={handleInputChange}
-              placeholder="Enter bed number"
-              className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm text-zinc-950 placeholder-zinc-400 transition focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-300/50"
-            />
-          </div>
-
-          {/* Buttons */}
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                resetForm();
-              }}
-              className="flex-1 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 rounded-2xl bg-pink-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-pink-500/20 transition hover:bg-pink-700"
-            >
-              Add Girl
-            </button>
+            <div className="relative">
+              <select
+                name="stay"
+                value={formData.stay}
+                onChange={handleInputChange}
+                className="w-full rounded-xl border border-pink-200 bg-white px-3 py-1.5 pr-8 text-sm text-zinc-950 transition appearance-none focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-300/50 cursor-pointer"
+              >
+                <option value="permanent">Permanent</option>
+                <option value="temporary">Temporary</option>
+              </select>
+              <div className="pointer-events-none absolute right-3 top-2 text-zinc-500 text-sm">
+                ▼
+              </div>
+            </div>
           </div>
         </form>
+
+        {/* Buttons */}
+        <div className="flex gap-2 p-4 sm:p-5 border-t border-pink-100 shrink-0 bg-white">
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              resetForm();
+            }}
+            className="flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs sm:text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            onClick={handleSubmit}
+            className="flex-1 rounded-xl bg-pink-600 px-3 py-2 text-xs sm:text-sm font-semibold text-white shadow-md shadow-pink-500/30 transition hover:bg-pink-700"
+          >
+            Add
+          </button>
+        </div>
       </div>
     </div>
   );
