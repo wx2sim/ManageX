@@ -18,6 +18,33 @@ export interface DailyConsumption {
   services: ServiceEntry[];
 }
 
+export interface MonthlyService {
+  name: string;
+  amount: number;
+  dueDate: string;
+}
+
+export interface PaymentEntry {
+  date: string;
+  amount: number;
+  method: string;
+  note: string;
+}
+
+export interface BonusEntry {
+  date: string;
+  amount: number;
+  recipient: string;
+  note: string;
+}
+
+export interface InstantProfitEntry {
+  date: string;
+  amount: number;
+  type: "profit" | "loss";
+  description: string;
+}
+
 export interface MonthlyStat {
   month: string;
   balance: number;
@@ -39,6 +66,10 @@ export interface GirlProfileDetail extends GirlProfile {
   monthlyStats: MonthlyStat[];
   serviceCategories: CategorySummary[];
   dailyConsumption: DailyConsumption[];
+  monthlyServices: MonthlyService[];
+  payments: PaymentEntry[];
+  bonuses: BonusEntry[];
+  instantProfits: InstantProfitEntry[];
 }
 
 export const girlProfiles: GirlProfileDetail[] = [
@@ -61,6 +92,23 @@ export const girlProfiles: GirlProfileDetail[] = [
       { category: "Wellness", count: 8, totalAmount: 54000 },
       { category: "Transport", count: 5, totalAmount: 16500 },
       { category: "Meals", count: 14, totalAmount: 57000 },
+    ],
+    monthlyServices: [
+      { name: "Rent", amount: 105000, dueDate: "2026-07-01" },
+      { name: "Wi-Fi", amount: 9500, dueDate: "2026-06-30" },
+      { name: "Cleaning (4 weeks)", amount: 26000, dueDate: "2026-07-05" },
+    ],
+    payments: [
+      { date: "2026-06-21", amount: 23000, method: "Cash", note: "Debt reduction" },
+      { date: "2026-06-18", amount: 15000, method: "Card", note: "Partial payment" },
+    ],
+    bonuses: [
+      { date: "2026-06-10", amount: 1200, recipient: "Room Service", note: "Extra service reward" },
+      { date: "2026-06-05", amount: 800, recipient: "Wellness", note: "Spa assistance" },
+    ],
+    instantProfits: [
+      { date: "2026-06-22", amount: 5200, type: "profit", description: "Sell extra wardrobe item" },
+      { date: "2026-06-16", amount: 1800, type: "loss", description: "Immediate delivery fee" },
     ],
     dailyConsumption: [
       { date: "2026-06-22", services: [{ name: "Spa treatment", category: "Wellness", amount: 12000 }, { name: "Dinner", category: "Meals", amount: 4500 }] },
@@ -95,6 +143,23 @@ export const girlProfiles: GirlProfileDetail[] = [
       { category: "Meals", count: 12, totalAmount: 29000 },
       { category: "Transport", count: 4, totalAmount: 12000 },
     ],
+    monthlyServices: [
+      { name: "Rent", amount: 85000, dueDate: "2026-06-30" },
+      { name: "Wi-Fi", amount: 9300, dueDate: "2026-07-02" },
+      { name: "Cleaning (4 weeks)", amount: 22000, dueDate: "2026-07-06" },
+    ],
+    payments: [
+      { date: "2026-06-20", amount: 18000, method: "Card", note: "Debt payment" },
+      { date: "2026-06-15", amount: 9000, method: "Cash", note: "Partial settlement" },
+    ],
+    bonuses: [
+      { date: "2026-06-12", amount: 1400, recipient: "Transport", note: "Driver tip" },
+      { date: "2026-06-08", amount: 600, recipient: "Meals", note: "Meal service reward" },
+    ],
+    instantProfits: [
+      { date: "2026-06-22", amount: 4200, type: "profit", description: "Sold unused cosmetics" },
+      { date: "2026-06-18", amount: 2200, type: "loss", description: "Emergency voucher" },
+    ],
     dailyConsumption: [
       { date: "2026-06-22", services: [{ name: "Lunch", category: "Meals", amount: 5100 }] },
       { date: "2026-06-21", services: [{ name: "Spa session", category: "Wellness", amount: 11000 }] },
@@ -127,6 +192,23 @@ export const girlProfiles: GirlProfileDetail[] = [
       { category: "Meals", count: 16, totalAmount: 68000 },
       { category: "Wellness", count: 9, totalAmount: 49500 },
       { category: "Transport", count: 7, totalAmount: 24000 },
+    ],
+    monthlyServices: [
+      { name: "Rent", amount: 110000, dueDate: "2026-07-03" },
+      { name: "Wi-Fi", amount: 9800, dueDate: "2026-07-01" },
+      { name: "Cleaning (4 weeks)", amount: 28000, dueDate: "2026-07-04" },
+    ],
+    payments: [
+      { date: "2026-06-22", amount: 32000, method: "Card", note: "Debt reduction" },
+      { date: "2026-06-14", amount: 16000, method: "Cash", note: "Partial settlement" },
+    ],
+    bonuses: [
+      { date: "2026-06-19", amount: 1700, recipient: "Wellness", note: "Premium service reward" },
+      { date: "2026-06-12", amount: 900, recipient: "Meals", note: "Waitstaff tip" },
+    ],
+    instantProfits: [
+      { date: "2026-06-20", amount: 6800, type: "profit", description: "Sold extra electronics" },
+      { date: "2026-06-18", amount: 2500, type: "loss", description: "Immediate delivery fee" },
     ],
     dailyConsumption: [
       { date: "2026-06-22", services: [{ name: "Dinner", category: "Meals", amount: 5200 }, { name: "Taxi", category: "Transport", amount: 3900 }] },
