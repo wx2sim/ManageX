@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { addDuty } from '@/actions/transactions';
+import { addDuty } from '@/actions/business_logic';
 
 interface DutyFormProps {
   girlId: string;

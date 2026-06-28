@@ -1,26 +1,32 @@
 'use server';
 
+/**
+ * BUSINESS LOGIC: Database I/O & Server Actions
+ * 
+ * This file handles writing money transactions into the database.
+ * Every function here dictates whether an amount will be added to or subtracted
+ * from the Resident's overall Net Balance by assigning a specific Transaction Type.
+ */
+
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { TransactionType } from '@/lib/types';
-import { calculateCartTotal } from '@/lib/financials/calculations';
+import { calculateCartTotal } from '@/lib/business_logic';
 
 /**
- * Logs a payment from a resident.
+ * LOG PAYMENT: Resident pays money to the House.
+ * 
+ * EFFECT: Decreases Resident's Debt (Increases Company Income)
+ * CALLED BY: PaymentForm.tsx (PaymentTab.tsx)
  */
 export async function addPayment(girlId: string, amount: number, note: string) {
   try {
-    if (amount <= 0) {
-      return { error: 'Amount must be greater than zero' };
-    }
+    if (amount <= 0) return { error: 'Amount must be greater than zero' };
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
 
-    if (!user) {
-      return { error: 'Not authenticated' };
-    }
-
+    // type 'payment' SUBTRACTS from net_balance
     const { error } = await supabase.from('transactions').insert({
       girl_id: girlId,
       profile_id: user.id,
@@ -29,9 +35,7 @@ export async function addPayment(girlId: string, amount: number, note: string) {
       note: note || null,
     });
 
-    if (error) {
-      return { error: error.message };
-    }
+    if (error) return { error: error.message };
 
     revalidatePath('/');
     revalidatePath(`/girls/${girlId}`);
@@ -44,21 +48,20 @@ export async function addPayment(girlId: string, amount: number, note: string) {
 }
 
 /**
- * Logs a penalty / duty charge.
+ * LOG DUTY / PENALTY: Resident is charged a penalty or fine.
+ * 
+ * EFFECT: Increases Resident's Debt
+ * CALLED BY: DutyForm.tsx (DutiesTab.tsx)
  */
 export async function addDuty(girlId: string, amount: number, note: string) {
   try {
-    if (amount <= 0) {
-      return { error: 'Amount must be greater than zero' };
-    }
+    if (amount <= 0) return { error: 'Amount must be greater than zero' };
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
 
-    if (!user) {
-      return { error: 'Not authenticated' };
-    }
-
+    // type 'duty' ADDS to net_balance
     const { error } = await supabase.from('transactions').insert({
       girl_id: girlId,
       profile_id: user.id,
@@ -67,9 +70,7 @@ export async function addDuty(girlId: string, amount: number, note: string) {
       note: note || null,
     });
 
-    if (error) {
-      return { error: error.message };
-    }
+    if (error) return { error: error.message };
 
     revalidatePath('/');
     revalidatePath(`/girls/${girlId}`);
@@ -82,20 +83,18 @@ export async function addDuty(girlId: string, amount: number, note: string) {
 }
 
 /**
- * Logs a bonus transaction.
+ * LOG BONUS: House gives a reward to the Resident.
+ * 
+ * EFFECT: Does NOT affect Resident's Debt (Increases Company Spent)
+ * CALLED BY: BonusForm.tsx (BonusTab.tsx)
  */
 export async function addBonus(girlId: string, amount: number, note: string) {
   try {
-    if (amount <= 0) {
-      return { error: 'Amount must be greater than zero' };
-    }
+    if (amount <= 0) return { error: 'Amount must be greater than zero' };
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { error: 'Not authenticated' };
-    }
+    if (!user) return { error: 'Not authenticated' };
 
     // Insert transaction
     const { data: txData, error: txError } = await supabase
@@ -110,9 +109,7 @@ export async function addBonus(girlId: string, amount: number, note: string) {
       .select('id')
       .single();
 
-    if (txError) {
-      return { error: txError.message };
-    }
+    if (txError) return { error: txError.message };
 
     // Insert bonus record
     const { error: bonusError } = await supabase.from('bonuses').insert({
@@ -122,9 +119,7 @@ export async function addBonus(girlId: string, amount: number, note: string) {
       note: note || null,
     });
 
-    if (bonusError) {
-      return { error: bonusError.message };
-    }
+    if (bonusError) return { error: bonusError.message };
 
     revalidatePath('/');
     revalidatePath(`/girls/${girlId}`);
@@ -137,20 +132,18 @@ export async function addBonus(girlId: string, amount: number, note: string) {
 }
 
 /**
- * Logs an ad-hoc instant profit or loss.
+ * LOG INSTANT PROFIT / LOSS: Global company gain or loss.
+ * 
+ * EFFECT: Does NOT affect any Resident's balance (Global metrics only)
+ * CALLED BY: InstantProfitForm.tsx
  */
 export async function addInstantProfit(amount: number, note: string, type: 'profit' | 'loss') {
   try {
-    if (amount <= 0) {
-      return { error: 'Amount must be greater than zero' };
-    }
+    if (amount <= 0) return { error: 'Amount must be greater than zero' };
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { error: 'Not authenticated' };
-    }
+    if (!user) return { error: 'Not authenticated' };
 
     const signedAmount = type === 'profit' ? amount : -amount;
 
@@ -166,9 +159,7 @@ export async function addInstantProfit(amount: number, note: string, type: 'prof
       .select('id')
       .single();
 
-    if (txError) {
-      return { error: txError.message };
-    }
+    if (txError) return { error: txError.message };
 
     // Insert instant profit details
     const { error: ipError } = await supabase.from('instant_profits').insert({
@@ -178,9 +169,7 @@ export async function addInstantProfit(amount: number, note: string, type: 'prof
       note: note || null,
     });
 
-    if (ipError) {
-      return { error: ipError.message };
-    }
+    if (ipError) return { error: ipError.message };
 
     revalidatePath('/');
     revalidatePath('/statistics');
@@ -192,21 +181,20 @@ export async function addInstantProfit(amount: number, note: string, type: 'prof
 }
 
 /**
- * Logs a fixed payment template application.
+ * LOG FIXED PAYMENT / RECURRING CHARGE: Apply a template charge (e.g., Rent).
+ * 
+ * EFFECT: Increases Resident's Debt
+ * CALLED BY: FixedPaymentForm.tsx (RecurringTab.tsx)
  */
 export async function applyFixedPayment(girlId: string, amount: number, name: string, note?: string) {
   try {
-    if (amount <= 0) {
-      return { error: 'Amount must be greater than zero' };
-    }
+    if (amount <= 0) return { error: 'Amount must be greater than zero' };
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
 
-    if (!user) {
-      return { error: 'Not authenticated' };
-    }
-
+    // type 'fixed_payment' ADDS to net_balance
     const { error } = await supabase.from('transactions').insert({
       girl_id: girlId,
       profile_id: user.id,
@@ -215,9 +203,7 @@ export async function applyFixedPayment(girlId: string, amount: number, name: st
       note: note || name,
     });
 
-    if (error) {
-      return { error: error.message };
-    }
+    if (error) return { error: error.message };
 
     revalidatePath('/');
     revalidatePath(`/girls/${girlId}`);
@@ -230,13 +216,14 @@ export async function applyFixedPayment(girlId: string, amount: number, name: st
 }
 
 /**
- * Saves a recurring payment template (e.g. Rent, WiFi) for a resident.
+ * SAVE RECURRING TEMPLATE: Store a default charge for future use.
+ * 
+ * EFFECT: No immediate balance change.
+ * CALLED BY: FixedPaymentForm.tsx (RecurringTab.tsx)
  */
 export async function saveFixedPaymentTemplate(girlId: string, name: string, defaultAmount: number) {
   try {
-    if (!name || defaultAmount <= 0) {
-      return { error: 'Name and valid default amount are required' };
-    }
+    if (!name || defaultAmount <= 0) return { error: 'Name and valid default amount are required' };
 
     const supabase = await createClient();
     const { error } = await supabase.from('fixed_payment_templates').insert({
@@ -245,9 +232,7 @@ export async function saveFixedPaymentTemplate(girlId: string, name: string, def
       default_amount: defaultAmount,
     });
 
-    if (error) {
-      return { error: error.message };
-    }
+    if (error) return { error: error.message };
 
     revalidatePath(`/girls/${girlId}/fixed-payments`);
     return { success: true };
@@ -258,7 +243,10 @@ export async function saveFixedPaymentTemplate(girlId: string, name: string, def
 }
 
 /**
- * Deletes a fixed payment template.
+ * DELETE RECURRING TEMPLATE
+ * 
+ * EFFECT: No balance change.
+ * CALLED BY: RecurringTab.tsx
  */
 export async function deleteFixedPaymentTemplate(templateId: string, girlId: string) {
   try {
@@ -268,9 +256,7 @@ export async function deleteFixedPaymentTemplate(templateId: string, girlId: str
       .delete()
       .eq('id', templateId);
 
-    if (error) {
-      return { error: error.message };
-    }
+    if (error) return { error: error.message };
 
     revalidatePath(`/girls/${girlId}/fixed-payments`);
     return { success: true };
@@ -281,7 +267,10 @@ export async function deleteFixedPaymentTemplate(templateId: string, girlId: str
 }
 
 /**
- * Commits a service cart purchase (multiple items) as a service transaction.
+ * LOG SERVICE TRANSACTION: Resident purchases items from the cart.
+ * 
+ * EFFECT: Increases Resident's Debt by total cart amount.
+ * CALLED BY: ItemList.tsx (Service Cart)
  */
 export async function commitServiceTransaction(
   girlId: string,
@@ -289,21 +278,16 @@ export async function commitServiceTransaction(
   note?: string
 ) {
   try {
-    if (items.length === 0) {
-      return { error: 'Cart is empty' };
-    }
+    if (items.length === 0) return { error: 'Cart is empty' };
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
 
-    if (!user) {
-      return { error: 'Not authenticated' };
-    }
-
-    // Calculate total transaction value
+    // Calculate total transaction value from business logic
     const totalAmount = calculateCartTotal(items);
 
-    // Create the master transaction
+    // type 'service' ADDS to net_balance
     const { data: txData, error: txError } = await supabase
       .from('transactions')
       .insert({
@@ -316,9 +300,7 @@ export async function commitServiceTransaction(
       .select('id')
       .single();
 
-    if (txError) {
-      return { error: txError.message };
-    }
+    if (txError) return { error: txError.message };
 
     // Insert line items
     const lineItems = items.map((item) => ({
@@ -335,7 +317,6 @@ export async function commitServiceTransaction(
       .insert(lineItems);
 
     if (itemsError) {
-      // Clean up transaction
       await supabase.from('transactions').delete().eq('id', txData.id);
       return { error: itemsError.message };
     }

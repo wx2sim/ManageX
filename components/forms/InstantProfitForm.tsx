@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { addInstantProfit } from '@/actions/transactions';
+import { addInstantProfit } from '@/actions/business_logic';
 
 export default function InstantProfitForm() {
   const router = useRouter();

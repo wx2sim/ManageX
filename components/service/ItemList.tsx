@@ -4,10 +4,10 @@ import { useState, useTransition, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Item } from '@/lib/types';
 import ItemCard from './ItemCard';
-import { commitServiceTransaction } from '@/actions/transactions';
+import { commitServiceTransaction } from '@/actions/business_logic';
 import { addItem } from '@/actions/items';
 import { formatDZD } from '@/lib/utils/formatters';
-import { calculateCartTotal } from '@/lib/financials/calculations';
+import { calculateCartTotal } from '@/lib/business_logic';
 
 interface ItemListProps {
   girlId: string;

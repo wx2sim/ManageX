@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { addBonus } from '@/actions/transactions';
+import { addBonus } from '@/actions/business_logic';
 
 interface BonusFormProps {
   girlId: string;

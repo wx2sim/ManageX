@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { addPayment } from '@/actions/transactions';
+import { addPayment } from '@/actions/business_logic';
 
 interface PaymentFormProps {
   girlId: string;

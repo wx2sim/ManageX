@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Transaction, TransactionType } from '@/lib/types';
 import { formatDZD, formatDate } from '@/lib/utils/formatters';
-import { calculateTransactionSummary } from '@/lib/financials/calculations';
+import { calculateTransactionSummary } from '@/lib/business_logic';
 
 interface StatsTableProps {
   transactions: Transaction[];

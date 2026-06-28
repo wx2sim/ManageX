@@ -1,8 +1,24 @@
-import { Transaction, TransactionItem } from '../types';
-
 /**
- * Interface representing the summary metrics calculated from a list of transactions.
+ * BUSINESS LOGIC: Money Input / Output & Equations
+ * 
+ * This file serves as the centralized source of truth for all mathematical 
+ * financial operations. It determines what adds to the balance (debt/owed) 
+ * and what subtracts from it (payments).
+ *
+ * THE CORE EQUATION:
+ * Net Balance = (Total Debt Added) - (Total Payments Made)
+ * 
+ * - When Net Balance > 0: The Resident owes the House money.
+ * - When Net Balance < 0: The House owes the Resident money (Credit).
+ *
+ * COMPONENT USAGE:
+ * - StatsTable.tsx -> calculateTransactionSummary() -> To show global income/spent/profit.
+ * - ItemList.tsx (Service Cart) -> calculateCartTotal() -> Realtime cart amount before checkout.
+ * - (DB Views compute net_balance using similar rules).
  */
+
+import { Transaction, TransactionItem } from './types';
+
 export interface TransactionSummary {
   income: number;    // Money collected (payments + positive instant profits)
   spent: number;     // Money paid out (bonuses + negative instant profits / losses)
@@ -13,10 +29,11 @@ export interface TransactionSummary {
 /**
  * Calculates summary metrics (income, spent, debt added, profit) from a list of transactions.
  * 
- * - Payments are counted as income.
- * - Bonuses are counted as spent.
- * - Instant profits are added to income if positive, or spent if negative.
- * - Services, duties, and fixed payments are considered liabilities (debt added).
+ * THE RULES (What affects what):
+ * 1. Payments -> counts as Income (decreases Resident's net_balance).
+ * 2. Bonuses -> counts as Spent (Company expense, does NOT affect Resident's net_balance).
+ * 3. Instant Profits -> if positive, Income; if negative, Spent (Does NOT affect Resident's net_balance).
+ * 4. Services, Duties, Fixed Payments -> counts as Debt Added (increases Resident's net_balance).
  * 
  * @param transactions - Array of transactions to process
  * @returns An object containing the calculated financial summary
@@ -54,7 +71,10 @@ export function calculateTransactionSummary(transactions: Transaction[]): Transa
 
 /**
  * Calculates the total selling value of a list of items in the shopping cart.
- * Multiplies the quantity of each item by its unit sell price.
+ * 
+ * RULE: (Quantity * Unit Sell Price)
+ * Used by ItemList.tsx to show real-time cart cost.
+ * This cost will eventually be recorded as a 'Service' transaction, INCREASING Resident's debt.
  * 
  * @param items - Array of items in the cart
  * @returns Total cost to the resident

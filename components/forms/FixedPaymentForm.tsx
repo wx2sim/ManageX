@@ -7,7 +7,7 @@ import {
   saveFixedPaymentTemplate, 
   deleteFixedPaymentTemplate, 
   applyFixedPayment 
-} from '@/actions/transactions';
+} from '@/actions/business_logic';
 import { formatDZD } from '@/lib/utils/formatters';
 
 interface FixedPaymentFormProps {
