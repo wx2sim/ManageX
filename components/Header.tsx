@@ -1,21 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const [session, setSession] = useState<any>(null);
+  const supabase = createClient();
 
-  const today = useMemo(() => {
-    return new Intl.DateTimeFormat("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    }).format(new Date());
+  const [today, setToday] = useState<string>("");
+
+  useEffect(() => {
+    setToday(
+      new Intl.DateTimeFormat("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      }).format(new Date())
+    );
   }, []);
 
   useEffect(() => {
@@ -43,14 +48,14 @@ export default function Header() {
   const handleAvatarClick = () => {
     if (session) {
       if (pathname === "/statistics") {
-        router.push("/dashboard");
+        router.push("/");
       } else {
         router.push("/statistics");
       }
       return;
     }
 
-    if (pathname === "/dashboard" || pathname === "/statistics") {
+    if (pathname === "/" || pathname === "/statistics") {
       router.push("/login");
       return;
     }
