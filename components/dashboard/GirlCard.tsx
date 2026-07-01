@@ -38,10 +38,10 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
   // Determine Net Balance visual styling
   // Positive = owes money (Debt) -> red
   // Negative = overpaid (Credit) -> green
-  const netBalanceText = profile.net_balance > 0 
-    ? `Owes: ${formatDZD(profile.net_balance)}` 
-    : profile.net_balance < 0 
-      ? `Credit: ${formatDZD(Math.abs(profile.net_balance))}` 
+  const netBalanceText = profile.net_balance > 0
+    ? `Owes: ${formatDZD(profile.net_balance)}`
+    : profile.net_balance < 0
+      ? `Credit: ${formatDZD(Math.abs(profile.net_balance))}`
       : 'Settled';
 
   const netBalanceColor = profile.net_balance > 0
@@ -80,7 +80,7 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
               </span>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2 shrink-0">
             <Link
               href={`/girls/${profile.girl_id}/service`}
@@ -177,24 +177,12 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Link
-          href={`/girls/${profile.girl_id}/service`}
+          href={`/girls/${profile.girl_id}`}
           className="inline-flex items-center justify-center rounded-2xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-pink-700"
         >
           + Buy Service
         </Link>
-        <Link
-          href={`/girls/${profile.girl_id}/payment`}
-          className="inline-flex items-center justify-center rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:border-pink-200 hover:text-pink-700"
-        >
-          Pay Debt
-        </Link>
-        <Link
-          href={`/girls/${profile.girl_id}/statistics`}
-          className="inline-flex items-center justify-center rounded-2xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-500 transition hover:bg-zinc-50"
-          title="Statistics"
-        >
-          📊 Stats
-        </Link>
+
       </div>
 
       {isOpen ? (

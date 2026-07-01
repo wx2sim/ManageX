@@ -7,9 +7,13 @@ interface GirlPageProps {
   params: Promise<{
     girlId: string;
   }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default function GirlDetailPage({ params }: GirlPageProps) {
+export default async function GirlDetailPage({ params, searchParams }: GirlPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const initialTab = typeof resolvedSearchParams.tab === 'string' ? resolvedSearchParams.tab : 'overview';
+
   return (
     <Suspense fallback={
       <div className="space-y-8 animate-in fade-in duration-300">
@@ -18,12 +22,12 @@ export default function GirlDetailPage({ params }: GirlPageProps) {
         <div className="h-96 bg-white/50 animate-pulse rounded-[2rem] border border-pink-100" />
       </div>
     }>
-      <GirlProfileDataLoader params={params} />
+      <GirlProfileDataLoader params={params} initialTab={initialTab} />
     </Suspense>
   );
 }
 
-async function GirlProfileDataLoader({ params }: GirlPageProps) {
+async function GirlProfileDataLoader({ params, initialTab }: { params: GirlPageProps['params'], initialTab: string }) {
   const [{ girlId }, supabase] = await Promise.all([params, createClient()]);
 
   const [
@@ -57,6 +61,7 @@ async function GirlProfileDataLoader({ params }: GirlPageProps) {
       subcategories={subcategories || []}
       items={items || []}
       templates={templates || []}
+      initialTab={initialTab}
     />
   );
 }

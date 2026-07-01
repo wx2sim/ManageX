@@ -38,7 +38,7 @@ export default async function GirlStatisticsPage({ params }: SubPageProps) {
           <p className="text-xs text-zinc-500 mt-1">Detailed history of service checkout bills, cash/card collections, rewards, and penalties.</p>
         </div>
         
-        <StatsTable transactions={transactions || []} />
+        <StatsTable transactions={transactions || []} girlId={girlId} />
       </div>
     </div>
   );

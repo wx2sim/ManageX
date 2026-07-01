@@ -24,6 +24,7 @@ interface Props {
   subcategories: ServiceSubcategory[];
   items: Item[];
   templates: FixedPaymentTemplate[];
+  initialTab?: string;
 }
 
 export default function GirlProfileClientView({
@@ -34,8 +35,9 @@ export default function GirlProfileClientView({
   subcategories,
   items,
   templates,
+  initialTab = 'overview',
 }: Props) {
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab as TabType);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📝' },
@@ -95,7 +97,7 @@ export default function GirlProfileClientView({
         {activeTab === 'bonus' && <BonusTab girlId={girl.girl_id} />}
         {activeTab === 'duties' && <DutiesTab girlId={girl.girl_id} />}
         {activeTab === 'recurring' && <RecurringTab girlId={girl.girl_id} templates={templates} />}
-        {activeTab === 'stats' && <StatsTab transactions={allTransactions} />}
+        {activeTab === 'stats' && <StatsTab transactions={allTransactions} girlId={girl.girl_id} />}
         {activeTab === 'settings' && <SettingsTab girl={girl} />}
       </div>
     </div>

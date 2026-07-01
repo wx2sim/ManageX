@@ -21,17 +21,18 @@ import { Transaction, TransactionItem } from './types';
 
 export interface TransactionSummary {
   income: number;    // Money collected (payments + positive instant profits)
-  spent: number;     // Money paid out (bonuses + negative instant profits / losses)
+  spent: number;     // Money paid out (negative instant profits / losses)
   debtAdded: number; // Liabilities registered (services + duties + fixed payments)
   profit: number;    // Net margin (income - spent)
+  bonusReceived: number; // Isolated bucket for bonuses received from residents
 }
 
 /**
- * Calculates summary metrics (income, spent, debt added, profit) from a list of transactions.
+ * Calculates summary metrics (income, spent, debt added, profit, bonusReceived) from a list of transactions.
  * 
  * THE RULES (What affects what):
  * 1. Payments -> counts as Income (decreases Resident's net_balance).
- * 2. Bonuses -> counts as Spent (Company expense, does NOT affect Resident's net_balance).
+ * 2. Bonuses -> counts as Bonus Received (Isolated bucket, does NOT affect Resident's net_balance).
  * 3. Instant Profits -> if positive, Income; if negative, Spent (Does NOT affect Resident's net_balance).
  * 4. Services, Duties, Fixed Payments -> counts as Debt Added (increases Resident's net_balance).
  * 
@@ -42,6 +43,7 @@ export function calculateTransactionSummary(transactions: Transaction[]): Transa
   let income = 0;   
   let spent = 0;    
   let debtAdded = 0;
+  let bonusReceived = 0;
 
   transactions.forEach((tx) => {
     const amt = Number(tx.amount);
@@ -49,13 +51,15 @@ export function calculateTransactionSummary(transactions: Transaction[]): Transa
     if (tx.type === 'payment') {
       income += amt;
     } else if (tx.type === 'bonus') {
-      spent += amt;
+      bonusReceived += amt;
     } else if (tx.type === 'instant_profit') {
       if (amt > 0) {
         income += amt;
       } else {
         spent += Math.abs(amt);
       }
+    } else if (tx.type === 'market_expense') {
+      spent += Math.abs(amt);
     } else if (tx.type === 'service' || tx.type === 'duty' || tx.type === 'fixed_payment') {
       debtAdded += amt;
     }
@@ -66,6 +70,7 @@ export function calculateTransactionSummary(transactions: Transaction[]): Transa
     spent,
     debtAdded,
     profit: income - spent,
+    bonusReceived,
   };
 }
 

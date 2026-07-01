@@ -43,8 +43,8 @@ export default function BonusForm({ girlId }: BonusFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5 bg-white p-6 rounded-3xl border border-pink-100 shadow-[0_15px_40px_rgba(236,72,153,0.03)]">
       <div>
-        <h2 className="text-lg font-bold text-zinc-950">Award Bonus Reward</h2>
-        <p className="text-xs text-zinc-500 mt-1">Logs a bonus payout and transaction entry.</p>
+        <h2 className="text-lg font-bold text-zinc-950">Receive Bonus from Resident</h2>
+        <p className="text-xs text-zinc-500 mt-1">Logs a bonus received into the isolated bonus bucket.</p>
       </div>
 
       <div className="space-y-4">

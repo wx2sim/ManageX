@@ -15,10 +15,8 @@ export default function Header() {
   useEffect(() => {
     setToday(
       new Intl.DateTimeFormat("en-US", {
-        weekday: "long",
         month: "long",
         day: "numeric",
-        year: "numeric",
       }).format(new Date())
     );
   }, []);
@@ -47,16 +45,9 @@ export default function Header() {
 
   const handleAvatarClick = () => {
     if (session) {
-      if (pathname === "/statistics") {
+      if (pathname !== "/") {
         router.push("/");
-      } else {
-        router.push("/statistics");
       }
-      return;
-    }
-
-    if (pathname === "/" || pathname === "/statistics") {
-      router.push("/login");
       return;
     }
 
@@ -92,13 +83,22 @@ export default function Header() {
 
         <div className="flex items-center gap-3">
           {session ? (
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="inline-flex rounded-2xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-pink-500/20 transition hover:bg-pink-700"
-            >
-              Sign out
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => router.push('/stock')}
+                className="inline-flex rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 transition hover:bg-emerald-100 border border-emerald-200"
+              >
+                🛒  Stock
+              </button>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="inline-flex rounded-2xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-pink-500/20 transition hover:bg-pink-700"
+              >
+                Sign out
+              </button>
+            </>
           ) : null}
 
           <button

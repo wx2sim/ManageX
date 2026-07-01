@@ -4,7 +4,8 @@ export type TransactionType =
   | 'bonus'
   | 'duty'
   | 'instant_profit'
-  | 'fixed_payment';
+  | 'fixed_payment'
+  | 'market_expense';
 
 export interface Profile {
   id: string;
@@ -62,6 +63,7 @@ export interface Item {
   image_url: string | null;
   cost_price: number;
   sell_price: number;
+  stock_quantity: number;
   is_active: boolean;
   created_at: string;
 }
@@ -112,5 +114,17 @@ export interface InstantProfit {
   transaction_id: string;
   amount: number;
   note: string | null;
+  created_at: string;
+}
+
+export interface MarketInput {
+  id: string;
+  profile_id: string;
+  item_id: string;
+  quantity: number;
+  unit_buy_price: number;
+  unit_sell_price: number;
+  total_worth: number;
+  shopping_date: string;
   created_at: string;
 }

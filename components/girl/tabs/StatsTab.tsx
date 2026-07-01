@@ -3,7 +3,7 @@
 import { Transaction } from '@/lib/types';
 import StatsTable from '@/components/stats/StatsTable';
 
-export default function StatsTab({ transactions }: { transactions: Transaction[] }) {
+export default function StatsTab({ transactions, girlId }: { transactions: Transaction[]; girlId?: string }) {
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
       <div>
@@ -11,7 +11,7 @@ export default function StatsTab({ transactions }: { transactions: Transaction[]
         <p className="text-xs text-zinc-500 mt-1">Detailed history of service checkout bills, cash/card collections, rewards, and penalties.</p>
       </div>
       
-      <StatsTable transactions={transactions || []} />
+      <StatsTable transactions={transactions || []} girlId={girlId} />
     </div>
   );
 }
