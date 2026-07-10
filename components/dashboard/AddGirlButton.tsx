@@ -5,26 +5,16 @@ import { useState, useRef } from 'react';
 import { addGirl } from '@/actions/girls';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 
+const AVATARS = ['👩🏻', '👩🏼', '👩🏽', '👩🏾', '👱‍♀️', '👩‍🦰'];
+
 export default function AddGirlButton({ compact = false }: { compact?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useOverlayTransition();
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedAvatar, setSelectedAvatar] = useState<string>(AVATARS[0]);
   const { t, tError } = useTranslation();
   
   const formRef = useRef<HTMLFormElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -38,7 +28,7 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
         setError(tError(res.error));
       } else {
         setIsOpen(false);
-        setPreviewUrl(null);
+        setSelectedAvatar(AVATARS[0]);
         formRef.current?.reset();
       }
     });
@@ -46,7 +36,7 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
 
   const handleClose = () => {
     setIsOpen(false);
-    setPreviewUrl(null);
+    setSelectedAvatar(AVATARS[0]);
     setError(null);
   };
 
@@ -92,35 +82,24 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
 
             {/* Modal Body */}
             <form ref={formRef} onSubmit={handleSubmit} className="space-y-4 p-6 overflow-y-auto flex-1 bg-white">
-              {/* Picture Upload */}
-              <div className="flex flex-col items-center gap-2">
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="h-20 w-20 rounded-full bg-pink-100 flex items-center justify-center text-3xl text-pink-700 border border-pink-200 cursor-pointer overflow-hidden relative group hover:opacity-90 transition"
-                  title={t('forms.upload')}
-                >
-                  {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span>👤</span>
-                  )}
-                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-white text-xs font-semibold">
-                    {t('forms.upload')}
-                  </div>
+              {/* Avatar Selection */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                  {t('forms.upload') || 'Select Avatar'}
+                </label>
+                <div className="grid grid-cols-6 gap-2">
+                  {AVATARS.map((avatar) => (
+                    <button
+                      key={avatar}
+                      type="button"
+                      onClick={() => setSelectedAvatar(avatar)}
+                      className={`h-12 w-12 rounded-full flex items-center justify-center text-3xl transition border ${selectedAvatar === avatar ? 'bg-pink-100 border-pink-400 scale-110 shadow-sm' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100 grayscale hover:grayscale-0'}`}
+                    >
+                      {avatar}
+                    </button>
+                  ))}
                 </div>
-                <input
-                  type="file"
-                  name="avatar"
-                  ref={fileInputRef}
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <p className="text-xxs text-zinc-400">{t('forms.clickToUpload')}</p>
+                <input type="hidden" name="avatar" value={selectedAvatar} />
               </div>
 
               {/* Name */}

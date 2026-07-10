@@ -3,32 +3,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-/**
- * Uploads an avatar image to Supabase Storage and returns its public URL.
- */
-async function uploadAvatar(file: File): Promise<string> {
-  const supabase = await createClient();
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-  const filePath = `avatars/${fileName}`;
-
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  const { error } = await supabase.storage
-    .from('avatars')
-    .upload(filePath, buffer, {
-      contentType: file.type,
-      upsert: true,
-    });
-
-  if (error) {
-    throw new Error(`Avatar upload failed: ${error.message}`);
-  }
-
-  const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-  return data.publicUrl;
-}
 
 /**
  * Adds a new girl profile to the database.
@@ -36,7 +10,7 @@ async function uploadAvatar(file: File): Promise<string> {
 export async function addGirl(formData: FormData) {
   try {
     const name = formData.get('name') as string;
-    const avatarFile = formData.get('avatar') as File | null;
+    const avatarUrl = formData.get('avatar') as string | null;
     const startDate = formData.get('start_date') as string || new Date().toISOString().split('T')[0];
     const accountType = formData.get('account_type') as string || 'resident';
 
@@ -49,11 +23,6 @@ export async function addGirl(formData: FormData) {
 
     if (!user) {
       return { error: 'Not authenticated' };
-    }
-
-    let avatarUrl: string | null = null;
-    if (avatarFile && avatarFile.size > 0) {
-      avatarUrl = await uploadAvatar(avatarFile);
     }
 
     // Get current max position to place new card at the end
@@ -95,7 +64,7 @@ export async function addGirl(formData: FormData) {
 export async function updateGirl(girlId: string, formData: FormData) {
   try {
     const name = formData.get('name') as string;
-    const avatarFile = formData.get('avatar') as File | null;
+    const avatarUrl = formData.get('avatar') as string | null;
     const startDate = formData.get('start_date') as string;
     const accountType = formData.get('account_type') as string;
 
@@ -122,16 +91,14 @@ export async function updateGirl(girlId: string, formData: FormData) {
       updateData.account_type = accountType;
     }
 
-    if (avatarFile && avatarFile.size > 0) {
-      const avatarUrl = await uploadAvatar(avatarFile);
+    if (avatarUrl) {
       updateData.avatar_url = avatarUrl;
     }
 
     const { error } = await supabase
       .from('girls')
       .update(updateData)
-      .eq('id', girlId)
-      ;
+      .eq('id', girlId);
 
     if (error) {
       return { error: error.message };

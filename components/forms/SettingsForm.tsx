@@ -8,6 +8,8 @@ import { updateGirl, updateGirlStatus, deleteGirl } from '@/actions/girls';
 import { formatDate } from '@/lib/utils/formatters';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 
+const AVATARS = ['👩🏻', '👩🏼', '👩🏽', '👩🏾', '👱‍♀️', '👩‍🦰'];
+
 interface SettingsFormProps {
   girl: GirlBalance;
 }
@@ -20,20 +22,8 @@ export default function SettingsForm({ girl }: SettingsFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useOverlayTransition();
-  const [previewUrl, setPreviewUrl] = useState<string | null>(girl.avatar_url);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedAvatar, setSelectedAvatar] = useState<string>(girl.avatar_url || AVATARS[0]);
   const { t, tError } = useTranslation();
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,9 +39,7 @@ export default function SettingsForm({ girl }: SettingsFormProps) {
     formData.append('name', name);
     formData.append('start_date', startDate);
     formData.append('account_type', accountType);
-    if (fileInputRef.current?.files?.[0]) {
-      formData.append('avatar', fileInputRef.current.files[0]);
-    }
+    formData.append('avatar', selectedAvatar);
 
     startTransition(async () => {
       const res = await updateGirl(girl.girl_id, formData);
@@ -120,34 +108,23 @@ export default function SettingsForm({ girl }: SettingsFormProps) {
           <p className="text-xs text-zinc-500 mt-1">{t('settings.desc')}</p>
         </div>
 
-        {/* Picture Upload */}
-        <div className="flex flex-col items-center gap-2">
-          <div 
-            onClick={() => fileInputRef.current?.click()}
-            className="h-20 w-20 rounded-full bg-pink-100 flex items-center justify-center text-3xl text-pink-700 border border-pink-200 cursor-pointer overflow-hidden relative group hover:opacity-95 transition"
-          >
-            {previewUrl ? (
-              <img
-                src={previewUrl}
-                alt="Preview"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span>👤</span>
-            )}
-            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-white text-xs font-semibold">
-              {t('settings.changeAvatar')}
-            </div>
+        {/* Avatar Selection */}
+        <div>
+          <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+            {t('settings.changeAvatar') || 'Select Avatar'}
+          </label>
+          <div className="grid grid-cols-6 gap-2">
+            {AVATARS.map((avatar) => (
+              <button
+                key={avatar}
+                type="button"
+                onClick={() => setSelectedAvatar(avatar)}
+                className={`h-12 w-12 rounded-full flex items-center justify-center text-3xl transition border ${selectedAvatar === avatar ? 'bg-pink-100 border-pink-400 scale-110 shadow-sm' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100 grayscale hover:grayscale-0'}`}
+              >
+                {avatar}
+              </button>
+            ))}
           </div>
-          <input
-            type="file"
-            name="avatar"
-            ref={fileInputRef}
-            accept="image/*"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <p className="text-xxs text-zinc-400">{t('settings.clickToChange')}</p>
         </div>
 
         <div className="space-y-4">

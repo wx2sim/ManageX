@@ -206,6 +206,16 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   return (
     <div className={`space-y-6 ${isModal ? '' : 'animate-in slide-in-from-bottom-4 duration-500'}`}>
 
+      {!isModal && (
+        <div>
+          <p className="text-xs uppercase tracking-[0.35em] text-emerald-600 font-bold font-sans">{t('market.header.subtitle') || 'Inventory & Purchases'}</p>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-950 mt-1">{t('market.header.title') || 'Market Stock'}</h1>
+          <p className="text-xs text-zinc-500 mt-1">
+            {t('market.header.desc') || 'Log wholesale grocery purchases, track inventory costs, and manage house supplies.'}
+          </p>
+        </div>
+      )}
+
       {/* Available Products Grid */}
       <div className="mb-8 space-y-4">
         <h2 className="text-xl font-bold text-zinc-900">{t('market.input.existingProduct') || 'Available Products'}</h2>
@@ -240,7 +250,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
               📥
             </div>
             <h3 className="font-bold text-zinc-900">{t('market.tabs.input') || 'Stock Entry'}</h3>
-            <p className="text-xs text-zinc-500 mt-1">Ajouter un produit ou matière</p>
+            <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.inputDesc') || 'Ajouter un produit ou matière'}</p>
           </button>
           
           <button
@@ -251,7 +261,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
               📋
             </div>
             <h3 className="font-bold text-zinc-900">{t('market.tabs.recipes') || 'Recipes & BOM'}</h3>
-            <p className="text-xs text-zinc-500 mt-1">Gérer les nomenclatures</p>
+            <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.recipesDesc') || 'Gérer les nomenclatures'}</p>
           </button>
 
           <button
@@ -262,7 +272,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
               ⚙️
             </div>
             <h3 className="font-bold text-zinc-900">{t('market.tabs.categories')}</h3>
-            <p className="text-xs text-zinc-500 mt-1">Structurer le catalogue</p>
+            <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.categoriesDesc') || 'Structurer le catalogue'}</p>
           </button>
         </div>
       )}
@@ -440,13 +450,13 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
                   <div>
                     <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
-                      Alerte Stock Minimum (Min Stock Alert)
+                      {t('market.input.minStockAlert') || 'Alerte Stock Minimum (Min Stock Alert)'}
                     </label>
                     <input
                       type="number"
                       value={newItemMinStockAlert}
                       onChange={(e) => setNewItemMinStockAlert(e.target.value)}
-                      placeholder="e.g. 5 (Optionnel)"
+                      placeholder={t('market.input.optionalAlert') || 'e.g. 5 (Optionnel)'}
                       className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
                     />
                   </div>
@@ -621,8 +631,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                   <input type="number" value={editStockQty} onChange={e => setEditStockQty(e.target.value)} required className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">Alerte Stock Minimum (Min Stock Alert)</label>
-                  <input type="number" value={editMinStockAlert} onChange={e => setEditMinStockAlert(e.target.value)} placeholder="e.g. 5 (Optionnel)" className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none" />
+                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">{t('market.input.minStockAlert') || 'Alerte Stock Minimum (Min Stock Alert)'}</label>
+                  <input type="number" value={editMinStockAlert} onChange={e => setEditMinStockAlert(e.target.value)} placeholder={t('market.input.optionalAlert') || 'e.g. 5 (Optionnel)'} className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none" />
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button type="button" onClick={() => setEditingItem(null)} className="flex-1 rounded-xl bg-zinc-100 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-200">

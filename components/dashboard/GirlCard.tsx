@@ -106,7 +106,11 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
               className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${avatarBgClass} text-sm font-semibold transition hover:ring-2 focus-visible:outline-none focus-visible:ring-2`}
               aria-label={`${t('dashboard.viewProfile')} ${profile.name}`}
             >
-              {getInitials(profile.name)}
+              {profile.avatar_url ? (
+                <span className="text-[1.25em] leading-none block transform translate-y-[1px]">{profile.avatar_url}</span>
+              ) : (
+                getInitials(profile.name)
+              )}
             </Link>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -176,7 +180,11 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
           aria-label={`View ${profile.name} profile`}
         >
           <div className={`inline-flex h-20 w-20 items-center justify-center rounded-[2rem] ${avatarBgClass} text-2xl font-semibold transition group-hover:scale-105`}>
-            {getInitials(profile.name)}
+            {profile.avatar_url ? (
+              <span className="text-[2em] leading-none block transform translate-y-[2px]">{profile.avatar_url}</span>
+            ) : (
+              getInitials(profile.name)
+            )}
           </div>
           <div className="text-center">
             <h3 className={`text-xl font-bold transition flex items-center justify-center gap-2 ${headingColor} ${hoverTextClass}`}>
@@ -216,12 +224,12 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
           <span className={`text-sm font-semibold ${(isNuitee || isAdmin) ? 'text-emerald-300' : 'text-emerald-700'}`}>+{formatDZD(profile.monthly_paid)}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className={`text-xs font-medium ${(isNuitee || isAdmin) ? 'text-zinc-300' : 'text-zinc-500'}`}>Debt Added This Month</span>
+          <span className={`text-xs font-medium ${(isNuitee || isAdmin) ? 'text-zinc-300' : 'text-zinc-500'}`}>{t('dashboard.debtAddedThisMonth') || 'Debt Added This Month'}</span>
           <span className={`text-sm font-semibold ${(isNuitee || isAdmin) ? 'text-rose-300' : 'text-rose-600'}`}>+{formatDZD(profile.monthly_debt)}</span>
         </div>
         <div className={`h-px my-1 ${(isNuitee || isAdmin) ? 'bg-white/10' : 'bg-pink-100'}`} />
         <div className="flex items-center justify-between">
-          <span className={`text-xs font-semibold ${(isNuitee || isAdmin) ? 'text-white' : 'text-zinc-700'}`}>Services Balance</span>
+          <span className={`text-xs font-semibold ${(isNuitee || isAdmin) ? 'text-white' : 'text-zinc-700'}`}>{t('dashboard.servicesBalance') || 'Services Balance'}</span>
           <span className={`text-sm font-bold px-2 py-0.5 rounded-lg border ${netBalanceColor}`}>
             {netBalanceText}
           </span>
@@ -233,14 +241,14 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
           href={`/girls/${profile.girl_id}`}
           className={`inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold transition ${isAdmin ? 'bg-white text-zinc-900 hover:bg-zinc-100' : isNuitee ? 'bg-white text-fuchsia-700 hover:bg-fuchsia-50' : 'bg-pink-600 text-white hover:bg-pink-700'}`}
         >
-          + Buy Service
+          {t('dashboard.buyService') || '+ Buy Service'}
         </Link>
         {isNuitee && currentStatus === 'active' && (
           <button
             onClick={handleNuiteeDone}
             className="inline-flex items-center justify-center rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 shadow-lg shadow-emerald-500/20"
           >
-            ✓ Done
+            {t('dashboard.done') || '✓ Done'}
           </button>
         )}
       </div>

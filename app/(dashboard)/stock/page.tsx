@@ -25,14 +25,6 @@ export default async function MarketStockPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div>
-        <p className="text-xs uppercase tracking-[0.35em] text-emerald-600 font-bold font-sans">Inventory & Purchases</p>
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-950 mt-1">Market Stock</h1>
-        <p className="text-xs text-zinc-500 mt-1">
-          Log wholesale grocery purchases, track inventory costs, and manage house supplies.
-        </p>
-      </div>
-
       <MarketStockClient 
         items={items || []} 
         categories={categories || []} 
