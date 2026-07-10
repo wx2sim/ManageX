@@ -71,7 +71,6 @@ export const ar: typeof fr = {
     paidThisMonth: 'تم دفعه هذا الشهر',
     debtAddedThisMonth: 'الديون المضافة هذا الشهر',
     servicesBalance: 'رصيد الخدمات',
-    buyService: '+ شراء خدمة',
     done: '✓ تم',
     overallBalance: 'الرصيد الإجمالي',
     lesFilles: 'الفتيات',

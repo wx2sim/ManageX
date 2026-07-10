@@ -69,7 +69,6 @@ export const fr = {
     paidThisMonth: 'Payé ce mois-ci',
     debtAddedThisMonth: 'Dettes Ajoutées ce Mois',
     servicesBalance: 'Solde des Services',
-    buyService: '+ Acheter Service',
     done: '✓ Terminé',
     overallBalance: 'Solde Global',
     lesFilles: 'Les Filles',
