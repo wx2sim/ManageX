@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useTransition, useRef } from 'react';
+import { useOverlayTransition } from '@/lib/context/OverlayContext';
+import { useState, useRef } from 'react';
 import { addGirl } from '@/actions/girls';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 export default function AddGirlButton({ compact = false }: { compact?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startTransition] = useOverlayTransition();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const { t, tError } = useTranslation();
   
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,7 +35,7 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
     startTransition(async () => {
       const res = await addGirl(formData);
       if (res?.error) {
-        setError(res.error);
+        setError(tError(res.error));
       } else {
         setIsOpen(false);
         setPreviewUrl(null);
@@ -65,9 +68,9 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
         </div>
         <div className={compact ? 'text-left' : ''}>
           <p className={compact ? 'text-sm font-semibold text-zinc-800' : 'text-lg font-semibold text-zinc-800'}>
-            Add Resident
+            {t('dashboard.addResident')}
           </p>
-          {!compact && <p className="text-sm text-zinc-500 mt-1">Create a new resident card</p>}
+          {!compact && <p className="text-sm text-zinc-500 mt-1">{t('forms.addResidentDesc')}</p>}
         </div>
       </button>
 
@@ -76,7 +79,7 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
           <div className="w-full max-w-md rounded-3xl border border-pink-200 bg-white shadow-[0_20px_100px_rgba(236,72,153,0.25)] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-pink-100 p-5 shrink-0 bg-white">
-              <h2 className="text-lg font-semibold text-zinc-950">Add New Resident</h2>
+              <h2 className="text-lg font-semibold text-zinc-950">{t('forms.addResidentTitle')}</h2>
               <button
                 type="button"
                 onClick={handleClose}
@@ -94,7 +97,7 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
                 <div 
                   onClick={() => fileInputRef.current?.click()}
                   className="h-20 w-20 rounded-full bg-pink-100 flex items-center justify-center text-3xl text-pink-700 border border-pink-200 cursor-pointer overflow-hidden relative group hover:opacity-90 transition"
-                  title="Upload picture"
+                  title={t('forms.upload')}
                 >
                   {previewUrl ? (
                     <img
@@ -106,7 +109,7 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
                     <span>👤</span>
                   )}
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-white text-xs font-semibold">
-                    Upload
+                    {t('forms.upload')}
                   </div>
                 </div>
                 <input
@@ -117,19 +120,19 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
                   onChange={handleFileChange}
                   className="hidden"
                 />
-                <p className="text-xxs text-zinc-400">Click to upload photo (Optional)</p>
+                <p className="text-xxs text-zinc-400">{t('forms.clickToUpload')}</p>
               </div>
 
               {/* Name */}
               <div>
                 <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                  Name *
+                  {t('forms.name')}
                 </label>
                 <input
                   type="text"
                   name="name"
                   required
-                  placeholder="Full name"
+                  placeholder={t('forms.fullName')}
                   className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100"
                 />
               </div>
@@ -137,7 +140,7 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
               {/* Start Date */}
               <div>
                 <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                  Start Date
+                  {t('forms.startDate')}
                 </label>
                 <input
                   type="date"
@@ -145,6 +148,22 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
                   defaultValue={new Date().toISOString().split('T')[0]}
                   className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-900 transition focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100"
                 />
+              </div>
+
+              {/* Account Type */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
+                  {t('forms.accountType') || 'Account Type'}
+                </label>
+                <select
+                  name="account_type"
+                  defaultValue="resident"
+                  className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-900 transition focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100"
+                >
+                  <option value="resident">{t('forms.resident') || 'Resident'}</option>
+                  <option value="nuitee">{t('forms.nuitee') || 'Nuitée (Short term)'}</option>
+                  <option value="admin">{t('common.admin')}</option>
+                </select>
               </div>
 
               {error && (
@@ -162,7 +181,7 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
                 disabled={isPending}
                 className="flex-1 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
@@ -170,7 +189,7 @@ export default function AddGirlButton({ compact = false }: { compact?: boolean }
                 disabled={isPending}
                 className="flex-1 rounded-xl bg-pink-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-pink-500/20 transition hover:bg-pink-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {isPending ? 'Saving...' : 'Add'}
+                {isPending ? t('common.loading') : t('forms.add')}
               </button>
             </div>
           </div>

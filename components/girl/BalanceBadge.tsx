@@ -1,19 +1,24 @@
+'use client';
+
 import { formatDZD } from '@/lib/utils/formatters';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface BalanceBadgeProps {
   balance: number;
 }
 
 export default function BalanceBadge({ balance }: BalanceBadgeProps) {
+  const { t } = useTranslation();
+
   const isOwed = balance > 0;
   const isCredit = balance < 0;
   const absoluteValue = Math.abs(balance);
 
   const text = isOwed
-    ? `Owes ${formatDZD(absoluteValue)}`
+    ? `${t('dashboard.owes')} ${formatDZD(absoluteValue)}`
     : isCredit
-      ? `Credit ${formatDZD(absoluteValue)}`
-      : 'Settled';
+      ? `${t('dashboard.credit')} ${formatDZD(absoluteValue)}`
+      : t('dashboard.settled');
 
   const colorClass = isOwed
     ? 'text-rose-600 bg-rose-50 border-rose-100'

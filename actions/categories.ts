@@ -105,3 +105,51 @@ export async function deleteSubcategory(subcategoryId: string) {
     return { error: err.message || 'Something went wrong' };
   }
 }
+
+export async function updateCategory(categoryId: string, name: string, icon: string) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const { error } = await supabase
+      .from('service_categories')
+      .update({ name, icon })
+      .eq('id', categoryId)
+      .select('*')
+      .single();
+
+    if (error) return { error: error.message };
+
+    revalidatePath('/stock');
+    revalidatePath('/', 'layout');
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error updating category:', err);
+    return { error: err.message || 'Something went wrong' };
+  }
+}
+
+export async function updateSubcategory(subcategoryId: string, name: string, icon: string) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const { error } = await supabase
+      .from('service_subcategories')
+      .update({ name, icon })
+      .eq('id', subcategoryId)
+      .select('*')
+      .single();
+
+    if (error) return { error: error.message };
+
+    revalidatePath('/stock');
+    revalidatePath('/', 'layout');
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error updating subcategory:', err);
+    return { error: err.message || 'Something went wrong' };
+  }
+}

@@ -1,29 +1,50 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useOverlayTransition } from '@/lib/context/OverlayContext';
+import { useState } from 'react';
 import Link from 'next/link';
 import { GirlBalance } from '@/lib/types';
-import { toggleGirlActiveStatus, deleteGirl } from '@/actions/girls';
+import { updateGirlStatus, toggleGirlActiveStatus, deleteGirl } from '@/actions/girls';
 import { formatDZD, formatDate } from '@/lib/utils/formatters';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface GirlCardProps {
-  profile: GirlBalance;
+  profile: any; // using any since girl_balances has new columns
   compact?: boolean;
 }
 
 export default function GirlCard({ profile, compact = false }: GirlCardProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startTransition] = useOverlayTransition();
+  const { t } = useTranslation();
 
   const handleArchiveToggle = () => {
     setIsOpen(false);
     startTransition(async () => {
-      await toggleGirlActiveStatus(profile.girl_id, !profile.is_active);
+      // Toggle between active and archived
+      const newStatus = (profile.status || (profile.is_active ? 'active' : 'archived')) === 'active' ? 'archived' : 'active';
+      await updateGirlStatus(profile.girl_id, newStatus);
+    });
+  };
+
+  const handleBlockToggle = () => {
+    setIsOpen(false);
+    startTransition(async () => {
+      // Toggle between blocked and active
+      const currentStatus = profile.status || (profile.is_active ? 'active' : 'archived');
+      const newStatus = currentStatus === 'blocked' ? 'active' : 'blocked';
+      await updateGirlStatus(profile.girl_id, newStatus);
+    });
+  };
+
+  const handleNuiteeDone = () => {
+    startTransition(async () => {
+      await updateGirlStatus(profile.girl_id, 'archived');
     });
   };
 
   const handleDelete = () => {
-    if (confirm(`Are you sure you want to delete ${profile.name}? This will remove all their transaction history.`)) {
+    if (confirm(t('dashboard.deleteConfirm').replace('{name}', profile.name))) {
       setIsOpen(false);
       startTransition(async () => {
         await deleteGirl(profile.girl_id);
@@ -36,84 +57,109 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
   };
 
   // Determine Net Balance visual styling
-  // Positive = owes money (Debt) -> red
-  // Negative = overpaid (Credit) -> green
-  const netBalanceText = profile.net_balance > 0
-    ? `Owes: ${formatDZD(profile.net_balance)}`
-    : profile.net_balance < 0
-      ? `Credit: ${formatDZD(Math.abs(profile.net_balance))}`
-      : 'Settled';
+  // Negative = owes money (Debt) -> red
+  // Positive = overpaid (Credit) -> green
+  const netBal = Number(profile.net_balance) || 0;
+  const netBalanceText = netBal < 0
+    ? `${t('dashboard.owes')}: -${formatDZD(Math.abs(netBal))}`
+    : netBal > 0
+      ? `${t('dashboard.credit')}: +${formatDZD(netBal)}`
+      : t('dashboard.settled');
 
-  const netBalanceColor = profile.net_balance > 0
+  const netBalanceColor = netBal < 0
     ? 'text-rose-600 bg-rose-50 border-rose-100'
-    : profile.net_balance < 0
+    : netBal > 0
       ? 'text-emerald-700 bg-emerald-50 border-emerald-100'
       : 'text-zinc-500 bg-zinc-50 border-zinc-100';
 
+  const currentStatus = profile.status || (profile.is_active ? 'active' : 'archived');
+  const isNuitee = profile.account_type === 'nuitee';
+  const isAdmin = profile.account_type === 'admin';
+  
+  // SELECT CARD STYLING ACCORDING TO ACCOUNT TYPE
+  const cardBgClass = isAdmin
+    ? 'bg-gradient-to-br from-zinc-800 to-zinc-950 border-zinc-700 shadow-zinc-900/40 text-white'
+    : isNuitee 
+      ? 'bg-gradient-to-br from-fuchsia-500 to-purple-600 border-fuchsia-400 shadow-fuchsia-500/30 text-white' 
+      : 'bg-white border-pink-100 shadow-pink-100/50';
+    
+  const avatarBgClass = (isNuitee || isAdmin)
+    ? 'bg-white/20 text-white ring-white/30 backdrop-blur-sm' 
+    : 'bg-pink-100 text-pink-700 ring-pink-200';
+    
+  const hoverTextClass = isAdmin
+    ? 'group-hover:text-zinc-300'
+    : isNuitee 
+      ? 'group-hover:text-fuchsia-100' 
+      : 'group-hover:text-pink-600';
+
+  const subtextColor = (isNuitee || isAdmin) ? 'text-zinc-300' : 'text-zinc-400';
+  const headingColor = (isNuitee || isAdmin) ? 'text-white' : 'text-zinc-950';
+
   if (compact) {
     return (
-      <div className={`group relative rounded-2xl border border-pink-100 bg-white p-4 shadow-sm shadow-pink-100/50 transition hover:shadow-md ${isPending ? 'opacity-60' : ''}`}>
+      <div className={`group relative rounded-2xl border p-4 shadow-sm transition hover:shadow-md ${cardBgClass} ${isPending ? 'opacity-60' : ''}`}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <Link
               href={`/girls/${profile.girl_id}`}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pink-100 text-sm font-semibold text-pink-700 transition hover:ring-2 hover:ring-pink-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300"
-              aria-label={`View ${profile.name} profile`}
+              className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${avatarBgClass} text-sm font-semibold transition hover:ring-2 focus-visible:outline-none focus-visible:ring-2`}
+              aria-label={`${t('dashboard.viewProfile')} ${profile.name}`}
             >
-              {profile.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt={profile.name}
-                  className="h-full w-full rounded-full object-cover"
-                />
-              ) : (
-                getInitials(profile.name)
-              )}
+              {getInitials(profile.name)}
             </Link>
             <div className="min-w-0 flex-1">
-              <Link href={`/girls/${profile.girl_id}`} className="truncate text-sm font-semibold text-zinc-950 hover:text-pink-600 block">
-                {profile.name}
-              </Link>
-              <p className="text-xxs text-zinc-400">Joined {formatDate(profile.start_date)}</p>
+              <div className="flex items-center gap-2">
+                <Link href={`/girls/${profile.girl_id}`} className={`truncate text-sm font-semibold ${headingColor} transition ${hoverTextClass}`}>
+                  {profile.name}
+                </Link>
+                {isAdmin && <span className="bg-zinc-700 text-[9px] font-bold tracking-wider px-1.5 py-0.2 rounded-full uppercase border border-zinc-600 text-zinc-300">{t('common.admin')}</span>}
+              </div>
+              <p className={`text-xxs ${subtextColor}`}>{t('common.joined')} {formatDate(profile.start_date)}</p>
               <span className={`inline-block mt-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold ${netBalanceColor}`}>
                 {netBalanceText}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-col gap-3">
             <Link
-              href={`/girls/${profile.girl_id}/service`}
-              className="inline-flex items-center gap-2 rounded-xl bg-pink-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-pink-700"
+              href={`/girls/${profile.girl_id}`}
+              className={`inline-flex w-full items-center justify-center rounded-2xl ${isAdmin ? 'bg-white text-zinc-900 hover:bg-zinc-100' : isNuitee ? 'bg-white text-fuchsia-700 hover:bg-fuchsia-50' : 'bg-pink-600 text-white hover:bg-pink-700'} px-4 py-3.5 text-sm font-bold shadow-lg transition hover:-translate-y-0.5`}
             >
-              + Buy
+              {t('dashboard.buyService')}
             </Link>
-            <button
-              type="button"
-              onClick={() => setIsOpen(!isOpen)}
-              className="h-9 w-9 flex items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 transition hover:border-pink-200 hover:text-pink-700"
-              aria-label="Open options"
+            <Link
+              href={`/girls/${profile.girl_id}`}
+              className={`inline-flex w-full items-center justify-center rounded-2xl px-4 py-3.5 text-sm font-bold shadow-sm border transition ${(isNuitee || isAdmin) ? 'bg-white/10 text-white border-white/20 hover:bg-white/20' : 'bg-white text-zinc-700 border-pink-200 hover:bg-pink-50 hover:text-pink-700'}`}
             >
-              ⋯
-            </button>
+              {t('dashboard.viewProfile')}
+            </Link>
           </div>
         </div>
 
-        {isOpen ? (
+        {!isAdmin && isOpen ? (
           <div className="absolute right-2 top-14 z-10 w-36 rounded-2xl border border-pink-100 bg-white p-2 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
+            <button
+              type="button"
+              onClick={handleBlockToggle}
+              className="w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+            >
+              {currentStatus === 'blocked' ? t('common.unblock') || 'Unblock' : t('common.block') || 'Block'}
+            </button>
             <button
               type="button"
               onClick={handleArchiveToggle}
               className="w-full rounded-lg px-3 py-2 text-left text-xs text-zinc-700 transition hover:bg-pink-50"
             >
-              {profile.is_active ? 'Archive' : 'Activate'}
+              {currentStatus === 'archived' ? t('common.unarchive') || 'Unarchive' : t('common.archive') || 'Archive'}
             </button>
             <button
               type="button"
               onClick={handleDelete}
               className="mt-1 w-full rounded-lg px-3 py-2 text-left text-xs text-rose-600 transition hover:bg-rose-50"
             >
-              Delete
+              {t('common.delete')}
             </button>
           </div>
         ) : null}
@@ -122,53 +168,60 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
   }
 
   return (
-    <div className={`group relative rounded-[1.75rem] border border-pink-100 bg-white p-6 shadow-[0_20px_60px_rgba(236,72,153,0.08)] transition hover:-translate-y-1 hover:shadow-[0_24px_80px_rgba(236,72,153,0.16)] ${isPending ? 'opacity-60' : ''}`}>
+    <div className={`group relative rounded-[1.75rem] border p-6 transition hover:-translate-y-1 ${cardBgClass} ${isPending ? 'opacity-60' : ''} ${isNuitee ? 'hover:shadow-[0_24px_80px_rgba(168,85,247,0.16)] shadow-[0_20px_60px_rgba(168,85,247,0.08)]' : 'hover:shadow-[0_24px_80px_rgba(236,72,153,0.16)] shadow-[0_20px_60px_rgba(236,72,153,0.08)]'}`}>
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link
-            href={`/girls/${profile.girl_id}`}
-            className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-pink-100 text-xl font-semibold text-pink-700 transition hover:ring-2 hover:ring-pink-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300"
-            aria-label={`View ${profile.name} profile`}
-          >
-            {profile.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt={profile.name}
-                className="h-full w-full rounded-full object-cover"
-              />
-            ) : (
-              getInitials(profile.name)
-            )}
-          </Link>
-          <div>
-            <Link href={`/girls/${profile.girl_id}`} className="text-lg font-semibold text-zinc-950 hover:text-pink-600 block">
-              {profile.name}
-            </Link>
-            <p className="text-xs text-zinc-400">Joined {formatDate(profile.start_date)}</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="h-10 w-10 flex items-center justify-center rounded-2xl border border-zinc-200 bg-white text-zinc-600 transition hover:border-pink-200 hover:text-pink-700"
-          aria-label="Open options"
+        <Link
+          href={`/girls/${profile.girl_id}`}
+          className="flex flex-col items-center gap-4 w-full"
+          aria-label={`View ${profile.name} profile`}
         >
-          ⋯
-        </button>
+          <div className={`inline-flex h-20 w-20 items-center justify-center rounded-[2rem] ${avatarBgClass} text-2xl font-semibold transition group-hover:scale-105`}>
+            {getInitials(profile.name)}
+          </div>
+          <div className="text-center">
+            <h3 className={`text-xl font-bold transition flex items-center justify-center gap-2 ${headingColor} ${hoverTextClass}`}>
+              {profile.name}
+              {isAdmin && <span className="bg-zinc-700 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full uppercase border border-zinc-600 text-zinc-300">{t('common.admin')}</span>}
+            </h3>
+            <p className={`mt-1 text-xs font-medium ${subtextColor}`}>
+              {t('common.joined')} {formatDate(profile.start_date)}
+            </p>
+          </div>
+        </Link>
+        {!isAdmin && (
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); setIsOpen(!isOpen); }}
+            className={`absolute top-6 right-6 h-10 w-10 flex items-center justify-center rounded-2xl border transition ${isNuitee ? 'bg-white/10 border-white/20 text-white hover:bg-white/20' : 'border-zinc-200 bg-white text-zinc-600 hover:border-pink-200 hover:text-pink-700'}`}
+            aria-label="Open options"
+          >
+            ⋯
+          </button>
+        )}
       </div>
 
-      <div className="mt-6 grid gap-3 rounded-3xl bg-pink-50/50 border border-pink-100/50 p-4">
+      <div className="border-t border-pink-50 bg-gradient-to-b from-transparent to-pink-50/30 p-6 pt-5">
+        <div className="mb-5 rounded-2xl bg-white p-4 shadow-sm border border-pink-100/50">
+          <p className="text-center text-xs font-bold uppercase tracking-widest text-zinc-400 mb-1">
+            {t('dashboard.netBalance')}
+          </p>
+          <div className="flex items-center justify-center">
+          </div>
+        </div>
+      </div>
+
+      <div className={`mt-6 grid gap-3 rounded-3xl border p-4 ${(isNuitee || isAdmin) ? 'bg-white/10 border-white/10' : 'bg-pink-50/50 border-pink-100/50'}`}>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-zinc-500 font-medium">Paid This Month</span>
-          <span className="text-sm font-semibold text-emerald-700">+{formatDZD(profile.monthly_paid)}</span>
+          <span className={`text-xs font-medium ${(isNuitee || isAdmin) ? 'text-zinc-300' : 'text-zinc-500'}`}>{t('dashboard.paidThisMonth')}</span>
+          <span className={`text-sm font-semibold ${(isNuitee || isAdmin) ? 'text-emerald-300' : 'text-emerald-700'}`}>+{formatDZD(profile.monthly_paid)}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-zinc-500 font-medium">Debt Added This Month</span>
-          <span className="text-sm font-semibold text-rose-600">+{formatDZD(profile.monthly_debt)}</span>
+          <span className={`text-xs font-medium ${(isNuitee || isAdmin) ? 'text-zinc-300' : 'text-zinc-500'}`}>Debt Added This Month</span>
+          <span className={`text-sm font-semibold ${(isNuitee || isAdmin) ? 'text-rose-300' : 'text-rose-600'}`}>+{formatDZD(profile.monthly_debt)}</span>
         </div>
-        <div className="h-px bg-pink-100 my-1" />
+        <div className={`h-px my-1 ${(isNuitee || isAdmin) ? 'bg-white/10' : 'bg-pink-100'}`} />
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-zinc-700">Overall Balance</span>
+          <span className={`text-xs font-semibold ${(isNuitee || isAdmin) ? 'text-white' : 'text-zinc-700'}`}>Services Balance</span>
           <span className={`text-sm font-bold px-2 py-0.5 rounded-lg border ${netBalanceColor}`}>
             {netBalanceText}
           </span>
@@ -178,28 +231,42 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Link
           href={`/girls/${profile.girl_id}`}
-          className="inline-flex items-center justify-center rounded-2xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-pink-700"
+          className={`inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold transition ${isAdmin ? 'bg-white text-zinc-900 hover:bg-zinc-100' : isNuitee ? 'bg-white text-fuchsia-700 hover:bg-fuchsia-50' : 'bg-pink-600 text-white hover:bg-pink-700'}`}
         >
           + Buy Service
         </Link>
-
+        {isNuitee && currentStatus === 'active' && (
+          <button
+            onClick={handleNuiteeDone}
+            className="inline-flex items-center justify-center rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 shadow-lg shadow-emerald-500/20"
+          >
+            ✓ Done
+          </button>
+        )}
       </div>
 
-      {isOpen ? (
+      {!isAdmin && isOpen ? (
         <div className="absolute right-6 top-24 z-10 w-40 rounded-3xl border border-pink-100 bg-white p-3 shadow-[0_22px_48px_rgba(0,0,0,0.08)]">
+          <button
+            type="button"
+            onClick={handleBlockToggle}
+            className="w-full rounded-2xl px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
+          >
+            {currentStatus === 'blocked' ? t('common.unblock') || 'Unblock' : t('common.block') || 'Block'}
+          </button>
           <button
             type="button"
             onClick={handleArchiveToggle}
             className="w-full rounded-2xl px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-pink-50"
           >
-            {profile.is_active ? 'Archive Profile' : 'Activate Profile'}
+            {currentStatus === 'active' ? t('common.archive') : t('common.unarchive')}
           </button>
           <button
             type="button"
             onClick={handleDelete}
             className="mt-1 w-full rounded-2xl px-3 py-2 text-left text-sm text-rose-600 transition hover:bg-rose-50"
           >
-            Delete Profile
+            {t('common.delete')}
           </button>
         </div>
       ) : null}

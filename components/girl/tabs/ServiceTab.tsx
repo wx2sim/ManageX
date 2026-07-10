@@ -3,15 +3,18 @@
 import { useState } from 'react';
 import { ServiceCategory, ServiceSubcategory, Item } from '@/lib/types';
 import ItemList from '@/components/service/ItemList';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface Props {
   girlId: string;
   categories: ServiceCategory[];
   subcategories: ServiceSubcategory[];
   items: Item[];
+  girl?: any;
 }
 
-export default function ServiceTab({ girlId, categories, subcategories, items }: Props) {
+export default function ServiceTab({ girlId, categories, subcategories, items, girl }: Props) {
+  const { t } = useTranslation();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | null>(null);
 
@@ -64,21 +67,22 @@ export default function ServiceTab({ girlId, categories, subcategories, items }:
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-zinc-950 capitalize">
-              Checkout: {cat?.name.replace('_', ' ')} / {subCat?.name}
+              {t('service.checkoutTitle').replace('{cat}', cat?.name.replace('_', ' ') || '').replace('{subcat}', subCat?.name || '')}
             </h2>
-            <p className="text-xs text-zinc-500 mt-1">Select product quantities and confirm checkout.</p>
+            <p className="text-xs text-zinc-500 mt-1">{t('service.checkoutDesc')}</p>
           </div>
           <button
             onClick={handleBack}
             className="text-xs font-semibold text-pink-600 hover:text-pink-700 transition"
           >
-            ← Back
+            {t('service.back')}
           </button>
         </div>
         <ItemList 
           girlId={girlId} 
           subcategoryId={selectedSubcategoryId} 
           items={subItems} 
+          girl={girl}
         />
       </div>
     );
@@ -94,14 +98,14 @@ export default function ServiceTab({ girlId, categories, subcategories, items }:
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-zinc-950 capitalize">{cat?.name.replace('_', ' ')} Subcategories</h2>
-            <p className="text-xs text-zinc-500 mt-1">Select a subcategory to load products.</p>
+            <h2 className="text-lg font-bold text-zinc-950 capitalize">{t('service.subcategoriesTitle').replace('{cat}', cat?.name.replace('_', ' ') || '')}</h2>
+            <p className="text-xs text-zinc-500 mt-1">{t('service.subcategoriesDesc')}</p>
           </div>
           <button
             onClick={handleBack}
             className="text-xs font-semibold text-pink-600 hover:text-pink-700 transition"
           >
-            ← Back to Categories
+            {t('service.backToCategories')}
           </button>
         </div>
 
@@ -121,7 +125,7 @@ export default function ServiceTab({ girlId, categories, subcategories, items }:
           ))}
           {categorySubcategories.length === 0 && (
              <div className="col-span-full p-6 text-center text-rose-600 bg-rose-50 border border-rose-200 rounded-3xl">
-               No subcategories exist for this category. Please add them via Admin.
+               {t('service.noSubcategories')}
              </div>
           )}
         </div>
@@ -142,14 +146,14 @@ export default function ServiceTab({ girlId, categories, subcategories, items }:
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
       <div>
-        <h2 className="text-lg font-bold text-zinc-950">Service Categories</h2>
-        <p className="text-xs text-zinc-500 mt-1">Select a category to view items or checkout purchases. Only categories with available stock are shown.</p>
+        <h2 className="text-lg font-bold text-zinc-950">{t('service.serviceCategories')}</h2>
+        <p className="text-xs text-zinc-500 mt-1">{t('service.serviceCategoriesDesc')}</p>
       </div>
 
       {sortedCategories.length === 0 ? (
         <div className="p-8 text-center bg-zinc-50 border border-zinc-200 rounded-3xl mt-6">
-          <p className="text-zinc-500 font-semibold mb-2">No Items in Stock</p>
-          <p className="text-sm text-zinc-400">Add products to the Market Stock to make them available for checkout.</p>
+          <p className="text-zinc-500 font-semibold mb-2">{t('service.noItemsInStock')}</p>
+          <p className="text-sm text-zinc-400">{t('service.noItemsInStockDesc')}</p>
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -168,7 +172,7 @@ export default function ServiceTab({ girlId, categories, subcategories, items }:
                 </div>
                 
                 <div className="flex items-center justify-end text-sm font-bold mt-4 w-full text-right">
-                  Select ➔
+                  {t('service.select')}
                 </div>
               </button>
             );

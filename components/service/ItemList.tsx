@@ -1,35 +1,42 @@
 'use client';
 
-import { useState, useTransition, useMemo } from 'react';
+import { useOverlayTransition } from '@/lib/context/OverlayContext';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Item } from '@/lib/types';
 import ItemCard from './ItemCard';
-import { commitServiceTransaction } from '@/actions/business_logic';
-import { addItem } from '@/actions/items';
+import { commitServiceTransaction } from '@/actions/services';
 import { formatDZD } from '@/lib/utils/formatters';
 import { calculateCartTotal } from '@/lib/business_logic';
+import { useTranslation } from '@/lib/i18n/useTranslation';
+import ServiceAddProductModal from './ServiceAddProductModal';
 
 interface ItemListProps {
   girlId: string;
   subcategoryId: string;
   items: Item[];
+  girl?: any;
 }
 
-export default function ItemList({ girlId, subcategoryId, items }: ItemListProps) {
+export default function ItemList({ girlId, subcategoryId, items, girl }: ItemListProps) {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<Record<string, number>>({});
   const [note, setNote] = useState('');
+  const { t } = useTranslation();
   
   // Add new item state
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newItemError, setNewItemError] = useState<string | null>(null);
   
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startTransition] = useOverlayTransition();
 
   // Search filter
   const filteredItems = useMemo(() => {
-    return items.filter((item) => item.name.toLowerCase().includes(search.toLowerCase()));
+    return items.filter((item) => {
+      const isFinished = item.item_type === 'finished' || !item.item_type;
+      const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
+      return isFinished && matchesSearch;
+    });
   }, [items, search]);
 
   const handleQuantityChange = (itemId: string, newQty: number) => {
@@ -58,9 +65,14 @@ export default function ItemList({ girlId, subcategoryId, items }: ItemListProps
     });
   }, [cart, items]);
 
+  const isAdmin = girl?.account_type === 'admin';
+
   const cartTotal = useMemo(() => {
-    return calculateCartTotal(cartDetails);
-  }, [cartDetails]);
+    return cartDetails.reduce((sum, item) => {
+      const price = isAdmin ? item.unit_cost_price : item.unit_sell_price;
+      return sum + (item.quantity * price);
+    }, 0);
+  }, [cartDetails, isAdmin]);
 
   const handleCheckout = () => {
     if (cartDetails.length === 0) return;
@@ -78,23 +90,7 @@ export default function ItemList({ girlId, subcategoryId, items }: ItemListProps
     });
   };
 
-  const handleAddItem = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setNewItemError(null);
-
-    const formData = new FormData(e.currentTarget);
-    formData.append('subcategory_id', subcategoryId);
-
-    startTransition(async () => {
-      const res = await addItem(formData);
-      if (res?.error) {
-        setNewItemError(res.error);
-      } else {
-        setIsAddOpen(false);
-        router.refresh();
-      }
-    });
-  };
+  // Note: addItem has been replaced by the MarketStockClient embedded in ServiceAddProductModal
 
   return (
     <div className="space-y-6">
@@ -105,7 +101,7 @@ export default function ItemList({ girlId, subcategoryId, items }: ItemListProps
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search items in this subcategory..."
+            placeholder={t('service.searchItems')}
             className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-2 pl-10 text-sm outline-none transition focus:border-pink-400"
           />
           <span className="absolute left-3.5 top-2.5 text-zinc-400 text-sm">🔍</span>
@@ -115,7 +111,7 @@ export default function ItemList({ girlId, subcategoryId, items }: ItemListProps
           onClick={() => setIsAddOpen(true)}
           className="rounded-2xl bg-pink-600 hover:bg-pink-700 text-white font-semibold text-xs px-4 py-2.5 transition shrink-0 flex items-center gap-1.5"
         >
-          ➕ Create New Product
+          ➕ {t('service.createNewProduct')}
         </button>
       </div>
 
@@ -124,7 +120,7 @@ export default function ItemList({ girlId, subcategoryId, items }: ItemListProps
         <div className="space-y-4">
           {filteredItems.length === 0 ? (
             <div className="text-center py-12 rounded-[2rem] border border-dashed border-pink-200 bg-white/70 p-6">
-              <p className="text-zinc-400 text-sm">No items found. Create a product using the button above.</p>
+              <p className="text-zinc-400 text-sm">{t('service.noItemsFound')}</p>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
@@ -134,6 +130,7 @@ export default function ItemList({ girlId, subcategoryId, items }: ItemListProps
                   item={item}
                   quantity={cart[item.id] || 0}
                   onQuantityChange={handleQuantityChange}
+                  isAdmin={isAdmin}
                 />
               ))}
             </div>
@@ -144,12 +141,18 @@ export default function ItemList({ girlId, subcategoryId, items }: ItemListProps
         <div className="space-y-4">
           <div className="bg-white p-6 rounded-3xl border border-pink-100 shadow-[0_15px_40px_rgba(236,72,153,0.03)] space-y-5 sticky top-24">
             <div>
-              <h2 className="text-lg font-bold text-zinc-950">Service Cart</h2>
-              <p className="text-xs text-zinc-500 mt-1">Review items before checkout. Prices include DZD currency.</p>
+              <h2 className="text-lg font-bold text-zinc-950">{t('service.serviceCart')}</h2>
+              <p className="text-xs text-zinc-500 mt-1">{t('service.serviceCartDesc')}</p>
             </div>
+            {isAdmin && (
+              <div className="bg-zinc-850 text-zinc-200 text-xxs font-bold px-3.5 py-2.5 rounded-2xl flex items-center gap-2 border border-zinc-700 bg-zinc-900">
+                <span>🛡️</span>
+                <span>ADMIN PRICING ACTIVE (BUY PRICES APPLIED)</span>
+              </div>
+            )}
 
             {cartDetails.length === 0 ? (
-              <p className="text-sm text-zinc-400 py-6 text-center">Cart is empty. Select products to begin checkout.</p>
+              <p className="text-sm text-zinc-400 py-6 text-center">{t('service.cartEmpty')}</p>
             ) : (
               <>
                 <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
@@ -158,11 +161,11 @@ export default function ItemList({ girlId, subcategoryId, items }: ItemListProps
                       <div className="min-w-0 flex-1">
                         <span className="font-semibold text-zinc-900 line-clamp-1">{entry.item_name}</span>
                         <span className="text-zinc-400 mt-0.5 block">
-                          {entry.quantity} × {formatDZD(entry.unit_sell_price)}
+                          {entry.quantity} × {formatDZD(isAdmin ? entry.unit_cost_price : entry.unit_sell_price)}
                         </span>
                       </div>
                       <span className="font-semibold text-zinc-800 shrink-0 ml-3">
-                        {formatDZD(entry.quantity * entry.unit_sell_price)}
+                        {formatDZD(entry.quantity * (isAdmin ? entry.unit_cost_price : entry.unit_sell_price))}
                       </span>
                     </div>
                   ))}
@@ -171,20 +174,20 @@ export default function ItemList({ girlId, subcategoryId, items }: ItemListProps
                 <div className="h-px bg-pink-100" />
 
                 <div className="flex items-center justify-between font-bold">
-                  <span className="text-sm text-zinc-700">Total Price</span>
+                  <span className="text-sm text-zinc-700">{t('service.totalPrice')}</span>
                   <span className="text-lg text-pink-600">{formatDZD(cartTotal)}</span>
                 </div>
 
                 {/* Checkout Note */}
                 <div className="space-y-1">
                   <label className="block text-xxs font-bold text-zinc-400 uppercase tracking-wider">
-                    Transaction Note
+                    {t('service.transactionNote')}
                   </label>
                   <input
                     type="text"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="e.g. Order delivered to room, dinner tab"
+                    placeholder={t('service.notePlaceholder')}
                     className="w-full rounded-xl border border-pink-100 bg-zinc-50/50 px-3 py-2 text-xs outline-none transition focus:border-pink-300"
                   />
                 </div>
@@ -195,7 +198,7 @@ export default function ItemList({ girlId, subcategoryId, items }: ItemListProps
                   disabled={isPending}
                   className="w-full rounded-xl bg-pink-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-pink-500/20 transition hover:bg-pink-700 disabled:opacity-50"
                 >
-                  {isPending ? 'Processing Checkout...' : 'Confirm Checkout'}
+                  {isPending ? t('service.processingCheckout') : t('service.confirmCheckout')}
                 </button>
               </>
             )}
@@ -203,109 +206,10 @@ export default function ItemList({ girlId, subcategoryId, items }: ItemListProps
         </div>
       </div>
 
-      {/* Add Product Modal */}
-      {isAddOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-3xl border border-pink-200 bg-white shadow-[0_20px_100px_rgba(236,72,153,0.25)] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-pink-100 p-5 shrink-0 bg-white">
-              <h2 className="text-lg font-semibold text-zinc-950">Create New Product</h2>
-              <button
-                type="button"
-                onClick={() => setIsAddOpen(false)}
-                className="text-lg text-zinc-400 transition hover:text-zinc-600 focus:outline-none"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleAddItem} className="space-y-4 p-6 overflow-y-auto flex-1 bg-white">
-              {/* Product Name */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                  Product Name *
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  placeholder="e.g. Tomato Soup, Malboro Gold"
-                  className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-900 transition focus:border-pink-400 focus:outline-none"
-                />
-              </div>
-
-              {/* Sell Price & Cost Price */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                    Sell Price *
-                  </label>
-                  <input
-                    type="number"
-                    name="sell_price"
-                    required
-                    min="1"
-                    placeholder="DZD"
-                    className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-900 transition focus:border-pink-400 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                    Cost Price (Buy)
-                  </label>
-                  <input
-                    type="number"
-                    name="cost_price"
-                    min="0"
-                    placeholder="DZD"
-                    className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-900 transition focus:border-pink-400 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Product Photo */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                  Product Photo
-                </label>
-                <input
-                  type="file"
-                  name="image"
-                  accept="image/*"
-                  className="w-full text-xs text-zinc-500 cursor-pointer"
-                />
-              </div>
-
-              {newItemError && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 font-medium">
-                  {newItemError}
-                </div>
-              )}
-            </form>
-
-            <div className="flex gap-3 p-5 border-t border-pink-100 shrink-0 bg-white">
-              <button
-                type="button"
-                onClick={() => setIsAddOpen(false)}
-                disabled={isPending}
-                className="flex-1 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                onClick={(e) => {
-                  const form = (e.currentTarget.closest('.w-full') as HTMLElement).querySelector('form');
-                  form?.requestSubmit();
-                }}
-                disabled={isPending}
-                className="flex-1 rounded-xl bg-pink-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-pink-500/20 transition hover:bg-pink-700 disabled:opacity-50"
-              >
-                {isPending ? 'Creating...' : 'Save Product'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ServiceAddProductModal 
+        isOpen={isAddOpen} 
+        onClose={() => setIsAddOpen(false)} 
+      />
     </div>
   );
 }

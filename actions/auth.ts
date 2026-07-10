@@ -38,3 +38,51 @@ export async function signOut() {
   revalidatePath('/', 'layout');
   redirect('/login');
 }
+
+/**
+ * Handles requesting a password reset email.
+ */
+export async function requestPasswordReset(prevState: any, formData: FormData) {
+  const email = formData.get('email') as string;
+  if (!email) {
+    return { error: 'Please enter your email address' };
+  }
+
+  const supabase = await createClient();
+  const redirectTo = process.env.NEXT_PUBLIC_SITE_URL 
+    ? `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`
+    : 'http://localhost:3000/reset-password';
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Handles updating the user's password after clicking the magic link.
+ */
+export async function updateUserPassword(prevState: any, formData: FormData) {
+  const password = formData.get('password') as string;
+
+  if (!password) {
+    return { error: 'Please enter a new password' };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({
+    password,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath('/', 'layout');
+  redirect('/');
+}

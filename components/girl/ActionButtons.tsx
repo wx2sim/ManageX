@@ -1,51 +1,54 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface ActionButtonsProps {
   girlId: string;
 }
 
 export default function ActionButtons({ girlId }: ActionButtonsProps) {
+  const { t } = useTranslation();
+
   const actions = [
     {
-      title: 'Buy Service',
-      description: 'Log buffet, groceries, cosmetics, hair, or online orders.',
+      title: t('actions.buyService'),
+      description: t('actions.buyServiceDesc'),
       icon: '🍽️',
       href: `/girls/${girlId}`,
       color: 'bg-pink-50 hover:bg-pink-100/80 border-pink-100 text-pink-700',
     },
     {
-      title: 'Log Payment',
-      description: 'Record rent cash collections or electronic transactions.',
+      title: t('actions.logPayment'),
+      description: t('actions.logPaymentDesc'),
       icon: '💵',
       href: `/girls/${girlId}`,
       color: 'bg-emerald-50 hover:bg-emerald-100/80 border-emerald-100 text-emerald-700',
     },
     {
-      title: 'Award Bonus',
-      description: 'Register bonus rewards for staff and resident tasks.',
+      title: t('actions.awardBonus'),
+      description: t('actions.awardBonusDesc'),
       icon: '🎁',
       href: `/girls/${girlId}`,
       color: 'bg-blue-50 hover:bg-blue-100/80 border-blue-100 text-blue-700',
     },
     {
-      title: 'Log Duty Charge',
-      description: 'Charge clean-up fines, penalties, or custom liabilities.',
+      title: t('actions.logDutyCharge'),
+      description: t('actions.logDutyChargeDesc'),
       icon: '⚠️',
       href: `/girls/${girlId}`,
       color: 'bg-rose-50 hover:bg-rose-100/80 border-rose-100 text-rose-700',
     },
     {
-      title: 'Recurring Charges',
-      description: 'Configure Wi-Fi, rent, or maintenance templates.',
+      title: t('actions.recurringCharges'),
+      description: t('actions.recurringChargesDesc'),
       icon: '⚙️',
       href: `/girls/${girlId}`,
       color: 'bg-purple-50 hover:bg-purple-100/80 border-purple-100 text-purple-700',
     },
     {
-      title: 'Instant Profit / Loss',
-      description: 'Track ad-hoc gains or immediate cash outflows.',
+      title: t('actions.instantProfitLoss'),
+      description: t('actions.instantProfitLossDesc'),
       icon: '📈',
       href: `/instant-profit`, // Instant profit is global
       color: 'bg-amber-50 hover:bg-amber-100/80 border-amber-100 text-amber-700',

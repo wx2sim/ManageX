@@ -3,7 +3,7 @@
  */
 export function formatDZD(amount: number): string {
   const absoluteValue = Math.abs(amount);
-  return `${absoluteValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} DZD`;
+  return `${absoluteValue.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} DZD`;
 }
 
 /**
@@ -13,7 +13,7 @@ export function formatDate(dateString: string | Date): string {
   if (!dateString) return '';
   const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
   if (isNaN(date.getTime())) return '';
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString('fr-FR', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -27,7 +27,7 @@ export function formatMonthYear(dateString: string | Date): string {
   if (!dateString) return '';
   const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
   if (isNaN(date.getTime())) return '';
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString('fr-FR', {
     month: 'long',
     year: 'numeric',
   });

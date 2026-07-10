@@ -9,14 +9,18 @@ export default async function MarketStockPage() {
     { data: items },
     { data: categories },
     { data: subcategories },
-    { data: marketInputs }
+    { data: marketInputs },
+    { data: recipes },
+    { data: recipeIngredients }
   ] = await Promise.all([
     supabase.from('items').select('*').order('name', { ascending: true }),
     supabase.from('service_categories').select('*').order('position', { ascending: true }),
     supabase.from('service_subcategories').select('*').order('position', { ascending: true }),
     supabase.from('market_inputs')
-      .select('*, items(name)')
-      .order('shopping_date', { ascending: false })
+      .select('*, items(name, stock_quantity)')
+      .order('shopping_date', { ascending: false }),
+    supabase.from('recipes').select('*, finished_product:items(*)'),
+    supabase.from('recipe_ingredients').select('*, raw_material:items(*)')
   ]);
 
   return (
@@ -34,6 +38,8 @@ export default async function MarketStockPage() {
         categories={categories || []} 
         subcategories={subcategories || []} 
         marketInputs={marketInputs || []} 
+        recipes={recipes || []}
+        recipeIngredients={recipeIngredients || []}
       />
     </div>
   );

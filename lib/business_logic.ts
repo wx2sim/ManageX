@@ -24,6 +24,7 @@ export interface TransactionSummary {
   spent: number;     // Money paid out (negative instant profits / losses)
   debtAdded: number; // Liabilities registered (services + duties + fixed payments)
   profit: number;    // Net margin (income - spent)
+  netBalance: number;// Solde de compte (debtAdded - payments only)
   bonusReceived: number; // Isolated bucket for bonuses received from residents
 }
 
@@ -45,11 +46,14 @@ export function calculateTransactionSummary(transactions: Transaction[]): Transa
   let debtAdded = 0;
   let bonusReceived = 0;
 
+  let totalPayments = 0;
+
   transactions.forEach((tx) => {
     const amt = Number(tx.amount);
     
     if (tx.type === 'payment') {
       income += amt;
+      totalPayments += amt;
     } else if (tx.type === 'bonus') {
       bonusReceived += amt;
     } else if (tx.type === 'instant_profit') {
@@ -70,6 +74,7 @@ export function calculateTransactionSummary(transactions: Transaction[]): Transa
     spent,
     debtAdded,
     profit: income - spent,
+    netBalance: totalPayments - debtAdded,
     bonusReceived,
   };
 }

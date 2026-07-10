@@ -40,6 +40,8 @@ export async function addItem(formData: FormData) {
     const costPrice = parseFloat(formData.get('cost_price') as string) || 0;
     const sellPrice = parseFloat(formData.get('sell_price') as string) || 0;
     const imageFile = formData.get('image') as File | null;
+    const minStockAlertVal = formData.get('min_stock_alert') as string;
+    const minStockAlert = (minStockAlertVal && !isNaN(parseInt(minStockAlertVal))) ? parseInt(minStockAlertVal) : null;
 
     if (!name || sellPrice <= 0) {
       return { error: 'Name and sell price are required' };
@@ -65,6 +67,7 @@ export async function addItem(formData: FormData) {
       cost_price: costPrice,
       sell_price: sellPrice,
       is_active: true,
+      min_stock_alert: minStockAlert,
     });
 
     if (error) {
@@ -88,6 +91,8 @@ export async function updateItem(itemId: string, formData: FormData) {
     const costPrice = parseFloat(formData.get('cost_price') as string);
     const sellPrice = parseFloat(formData.get('sell_price') as string);
     const imageFile = formData.get('image') as File | null;
+    const minStockAlertVal = formData.get('min_stock_alert') as string;
+    const minStockAlert = (minStockAlertVal && !isNaN(parseInt(minStockAlertVal))) ? parseInt(minStockAlertVal) : null;
 
     if (!name || isNaN(sellPrice) || sellPrice <= 0) {
       return { error: 'Name and valid sell price are required' };
@@ -104,6 +109,7 @@ export async function updateItem(itemId: string, formData: FormData) {
       name,
       cost_price: isNaN(costPrice) ? 0 : costPrice,
       sell_price: sellPrice,
+      min_stock_alert: minStockAlert,
     };
 
     if (imageFile && imageFile.size > 0) {
@@ -115,7 +121,7 @@ export async function updateItem(itemId: string, formData: FormData) {
       .from('items')
       .update(updateData)
       .eq('id', itemId)
-      .eq('profile_id', user.id);
+      ;
 
     if (error) {
       return { error: error.message };
@@ -145,7 +151,7 @@ export async function toggleItemActive(itemId: string, isActive: boolean) {
       .from('items')
       .update({ is_active: isActive })
       .eq('id', itemId)
-      .eq('profile_id', user.id);
+      ;
 
     if (error) {
       return { error: error.message };
@@ -175,7 +181,7 @@ export async function deleteItem(itemId: string) {
       .from('items')
       .delete()
       .eq('id', itemId)
-      .eq('profile_id', user.id);
+      ;
 
     if (error) {
       return { error: error.message };

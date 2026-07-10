@@ -38,6 +38,7 @@ export async function addGirl(formData: FormData) {
     const name = formData.get('name') as string;
     const avatarFile = formData.get('avatar') as File | null;
     const startDate = formData.get('start_date') as string || new Date().toISOString().split('T')[0];
+    const accountType = formData.get('account_type') as string || 'resident';
 
     if (!name) {
       return { error: 'Name is required' };
@@ -72,6 +73,8 @@ export async function addGirl(formData: FormData) {
       start_date: startDate,
       position: newPosition,
       is_active: true,
+      account_type: accountType,
+      status: 'active',
     });
 
     if (error) {
@@ -94,6 +97,7 @@ export async function updateGirl(girlId: string, formData: FormData) {
     const name = formData.get('name') as string;
     const avatarFile = formData.get('avatar') as File | null;
     const startDate = formData.get('start_date') as string;
+    const accountType = formData.get('account_type') as string;
 
     if (!name) {
       return { error: 'Name is required' };
@@ -114,6 +118,10 @@ export async function updateGirl(girlId: string, formData: FormData) {
       updateData.start_date = startDate;
     }
 
+    if (accountType) {
+      updateData.account_type = accountType;
+    }
+
     if (avatarFile && avatarFile.size > 0) {
       const avatarUrl = await uploadAvatar(avatarFile);
       updateData.avatar_url = avatarUrl;
@@ -123,7 +131,7 @@ export async function updateGirl(girlId: string, formData: FormData) {
       .from('girls')
       .update(updateData)
       .eq('id', girlId)
-      .eq('profile_id', user.id);
+      ;
 
     if (error) {
       return { error: error.message };
@@ -139,9 +147,10 @@ export async function updateGirl(girlId: string, formData: FormData) {
 }
 
 /**
- * Toggles a girl's active status (Archive/Unarchive).
+ * Updates a girl's status (active/blocked/archived).
+ * Backwards compatible with toggleGirlActiveStatus by also updating is_active.
  */
-export async function toggleGirlActiveStatus(girlId: string, isActive: boolean) {
+export async function updateGirlStatus(girlId: string, status: 'active' | 'archived' | 'blocked') {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -150,11 +159,13 @@ export async function toggleGirlActiveStatus(girlId: string, isActive: boolean) 
       return { error: 'Not authenticated' };
     }
 
+    const isActive = status === 'active';
+
     const { error } = await supabase
       .from('girls')
-      .update({ is_active: isActive })
+      .update({ status, is_active: isActive })
       .eq('id', girlId)
-      .eq('profile_id', user.id);
+      ;
 
     if (error) {
       return { error: error.message };
@@ -167,6 +178,13 @@ export async function toggleGirlActiveStatus(girlId: string, isActive: boolean) 
     console.error('Error toggling girl status:', err);
     return { error: err.message || 'Something went wrong' };
   }
+}
+
+/**
+ * Toggles a girl's active status (Legacy).
+ */
+export async function toggleGirlActiveStatus(girlId: string, isActive: boolean) {
+  return updateGirlStatus(girlId, isActive ? 'active' : 'archived');
 }
 
 /**
@@ -185,7 +203,7 @@ export async function deleteGirl(girlId: string) {
       .from('girls')
       .delete()
       .eq('id', girlId)
-      .eq('profile_id', user.id);
+      ;
 
     if (error) {
       return { error: error.message };
@@ -217,7 +235,7 @@ export async function reorderGirls(girlsList: { id: string; position: number }[]
         .from('girls')
         .update({ position: item.position })
         .eq('id', item.id)
-        .eq('profile_id', user.id);
+        ;
     }
 
     revalidatePath('/');

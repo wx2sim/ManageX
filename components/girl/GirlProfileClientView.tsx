@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ServiceCategory, ServiceSubcategory, Item, Transaction, GirlBalance, FixedPaymentTemplate } from '@/lib/types';
 import ProfileHeader from './ProfileHeader';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 // Import Tabs
 import OverviewTab from './tabs/OverviewTab';
@@ -13,6 +14,7 @@ import DutiesTab from './tabs/DutiesTab';
 import RecurringTab from './tabs/RecurringTab';
 import StatsTab from './tabs/StatsTab';
 import SettingsTab from './tabs/SettingsTab';
+import AdminProfitTab from './tabs/AdminProfitTab';
 
 export type TabType = 'overview' | 'service' | 'payment' | 'bonus' | 'duties' | 'recurring' | 'stats' | 'settings';
 
@@ -25,6 +27,11 @@ interface Props {
   items: Item[];
   templates: FixedPaymentTemplate[];
   initialTab?: string;
+  activeDemands: any[];
+  salesProfit?: number;
+  globalDzdRent?: number;
+  globalEuroRent?: number;
+  adminExpenses?: number;
 }
 
 export default function GirlProfileClientView({
@@ -36,23 +43,46 @@ export default function GirlProfileClientView({
   items,
   templates,
   initialTab = 'overview',
+  activeDemands,
+  salesProfit = 0,
+  globalDzdRent = 0,
+  globalEuroRent = 0,
+  adminExpenses = 0,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab as TabType);
 
-  const tabs = [
-    { id: 'overview', label: 'Overview', icon: '📝' },
-    { id: 'service', label: 'Service', icon: '🛒' },
-    { id: 'payment', label: 'Payment', icon: '💵' },
-    { id: 'bonus', label: 'Bonus', icon: '🎁' },
-    { id: 'duties', label: 'Duties', icon: '⚠️' },
-    { id: 'recurring', label: 'Recurring', icon: '⚙️' },
-    { id: 'stats', label: 'Stats', icon: '📊' },
-    { id: 'settings', label: 'Settings', icon: '🔧' },
-  ];
+  const { t } = useTranslation();
+
+  const isAdmin = girl.account_type === 'admin';
+
+  const tabs = isAdmin
+    ? [
+        { id: 'overview', label: t('tabs.overview') || 'Aperçu', icon: '📝' },
+        { id: 'service', label: t('tabs.service') || 'Service', icon: '🛒' },
+        { id: 'payment', label: t('tabs.bilan') || 'Bilan (Profit & Expenses)', icon: '💵' },
+        { id: 'stats', label: t('tabs.stats') || 'Statistiques', icon: '📊' },
+        { id: 'settings', label: t('tabs.settings') || 'Paramètres', icon: '🔧' },
+      ]
+    : [
+        { id: 'overview', label: t('tabs.overview') || 'Aperçu', icon: '📝' },
+        { id: 'service', label: t('tabs.service') || 'Service', icon: '🛒' },
+        { id: 'payment', label: t('tabs.payment') || 'Paiement', icon: '💵' },
+        { id: 'bonus', label: t('tabs.bonus') || 'Bonus', icon: '🎁' },
+        { id: 'duties', label: t('tabs.duties') || 'Charges', icon: '⚠️' },
+        { id: 'recurring', label: t('tabs.recurring') || 'Récurrent', icon: '⚙️' },
+        { id: 'stats', label: t('tabs.stats') || 'Statistiques', icon: '📊' },
+        { id: 'settings', label: t('tabs.settings') || 'Paramètres', icon: '🔧' },
+      ];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      <ProfileHeader girl={girl} />
+      <ProfileHeader 
+        girl={girl} 
+        salesProfit={salesProfit}
+        globalDzdRent={globalDzdRent}
+        globalEuroRent={globalEuroRent}
+        adminExpenses={adminExpenses}
+      />
 
       {/* Modern Navigation Bar */}
       <div className="sticky top-[73px] z-30 -mx-4 px-4 py-2 bg-white/80 backdrop-blur-xl border-b border-pink-100 sm:mx-0 sm:px-0 sm:bg-transparent sm:backdrop-blur-none sm:border-0 sm:static">
@@ -81,8 +111,10 @@ export default function GirlProfileClientView({
         {activeTab === 'overview' && (
           <OverviewTab
             girlId={girl.girl_id}
+            girl={girl}
             recentTransactions={recentTransactions}
             onChangeTab={setActiveTab}
+            activeDemands={activeDemands}
           />
         )}
         {activeTab === 'service' && (
@@ -91,13 +123,18 @@ export default function GirlProfileClientView({
             categories={categories}
             subcategories={subcategories}
             items={items}
+            girl={girl}
           />
         )}
-        {activeTab === 'payment' && <PaymentTab girlId={girl.girl_id} />}
-        {activeTab === 'bonus' && <BonusTab girlId={girl.girl_id} />}
-        {activeTab === 'duties' && <DutiesTab girlId={girl.girl_id} />}
-        {activeTab === 'recurring' && <RecurringTab girlId={girl.girl_id} templates={templates} />}
-        {activeTab === 'stats' && <StatsTab transactions={allTransactions} girlId={girl.girl_id} />}
+        {activeTab === 'payment' && (
+          isAdmin 
+            ? <AdminProfitTab girlId={girl.girl_id} girl={girl} /> 
+            : <PaymentTab girlId={girl.girl_id} />
+        )}
+        {activeTab === 'bonus' && !isAdmin && <BonusTab girlId={girl.girl_id} />}
+        {activeTab === 'duties' && !isAdmin && <DutiesTab girlId={girl.girl_id} />}
+        {activeTab === 'recurring' && !isAdmin && <RecurringTab girlId={girl.girl_id} templates={templates} />}
+        {activeTab === 'stats' && <StatsTab transactions={allTransactions} girlId={girl.girl_id} girl={girl} />}
         {activeTab === 'settings' && <SettingsTab girl={girl} />}
       </div>
     </div>

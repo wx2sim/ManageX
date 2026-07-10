@@ -4,10 +4,11 @@ import StatsTable from '@/components/stats/StatsTable';
 export default async function GlobalStatisticsPage() {
   const supabase = await createClient();
 
-  // Fetch all transactions and girls in parallel
+  // Fetch all transactions, girls, and girl balances in parallel
   const [
     { data: transactions },
-    { data: girls }
+    { data: girls },
+    { data: balances }
   ] = await Promise.all([
     supabase
       .from('transactions')
@@ -15,7 +16,10 @@ export default async function GlobalStatisticsPage() {
       .order('transaction_date', { ascending: false }),
     supabase
       .from('girls')
-      .select('id, name')
+      .select('id, name'),
+    supabase
+      .from('girl_balances')
+      .select('euro_vault_balance, dzd_vault_balance')
   ]);
 
   // Convert array to mapping dictionary
@@ -23,6 +27,16 @@ export default async function GlobalStatisticsPage() {
   if (girls) {
     girls.forEach((girl) => {
       girlNamesMap[girl.id] = girl.name;
+    });
+  }
+
+  // Compute global sums
+  let globalEuroVault = 0;
+  let globalDzdVault = 0;
+  if (balances) {
+    balances.forEach((b) => {
+      globalEuroVault += Number(b.euro_vault_balance || 0);
+      globalDzdVault += Number(b.dzd_vault_balance || 0);
     });
   }
 
@@ -40,6 +54,8 @@ export default async function GlobalStatisticsPage() {
         transactions={transactions || []} 
         showGirlColumn={true} 
         girlNamesMap={girlNamesMap} 
+        globalEuroVault={globalEuroVault}
+        globalDzdVault={globalDzdVault}
       />
     </div>
   );
