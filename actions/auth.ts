@@ -49,9 +49,14 @@ export async function requestPasswordReset(prevState: any, formData: FormData) {
   }
 
   const supabase = await createClient();
-  const redirectTo = process.env.NEXT_PUBLIC_SITE_URL 
-    ? `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`
-    : 'http://localhost:3000/reset-password';
+  let baseUrl = 'http://localhost:3000';
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  } else if (process.env.NEXT_PUBLIC_VERCEL_URL) {
+    baseUrl = `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`;
+  }
+  
+  const redirectTo = `${baseUrl}/reset-password`;
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
