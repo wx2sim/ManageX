@@ -78,7 +78,7 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
   
   // SELECT CARD STYLING ACCORDING TO ACCOUNT TYPE
   const cardBgClass = isAdmin
-    ? 'bg-gradient-to-br from-zinc-800 to-zinc-950 border-zinc-700 shadow-zinc-900/40 text-white'
+    ? 'bg-[#DD2D4A] border-[#b6223a] shadow-[#DD2D4A]/40 text-white'
     : isNuitee 
       ? 'bg-gradient-to-br from-fuchsia-500 to-purple-600 border-fuchsia-400 shadow-fuchsia-500/30 text-white' 
       : 'bg-white border-pink-100 shadow-pink-100/50';
@@ -88,7 +88,7 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
     : 'bg-pink-100 text-pink-700 ring-pink-200';
     
   const hoverTextClass = isAdmin
-    ? 'group-hover:text-zinc-300'
+    ? 'group-hover:text-white'
     : isNuitee 
       ? 'group-hover:text-fuchsia-100' 
       : 'group-hover:text-pink-600';
@@ -117,7 +117,7 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
                 <Link href={`/girls/${profile.girl_id}`} className={`truncate text-sm font-semibold ${headingColor} transition ${hoverTextClass}`}>
                   {profile.name}
                 </Link>
-                {isAdmin && <span className="bg-zinc-700 text-[9px] font-bold tracking-wider px-1.5 py-0.2 rounded-full uppercase border border-zinc-600 text-zinc-300">{t('common.admin')}</span>}
+                {isAdmin && <span className="bg-white/20 text-[9px] font-bold tracking-wider px-1.5 py-0.2 rounded-full uppercase border border-white/30 text-white">{t('common.admin')}</span>}
               </div>
               <p className={`text-xxs ${subtextColor}`}>{t('common.joined')} {formatDate(profile.start_date)}</p>
               <span className={`inline-block mt-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold ${netBalanceColor}`}>
@@ -129,7 +129,7 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
           <div className="flex flex-col gap-3">
             <Link
               href={`/girls/${profile.girl_id}`}
-              className={`inline-flex w-full items-center justify-center rounded-2xl ${isAdmin ? 'bg-white text-zinc-900 hover:bg-zinc-100' : isNuitee ? 'bg-white text-fuchsia-700 hover:bg-fuchsia-50' : 'bg-pink-600 text-white hover:bg-pink-700'} px-4 py-3.5 text-sm font-bold shadow-lg transition hover:-translate-y-0.5`}
+              className={`inline-flex w-full items-center justify-center rounded-2xl ${isAdmin ? 'bg-white text-[#DD2D4A] hover:bg-white/90' : isNuitee ? 'bg-white text-fuchsia-700 hover:bg-fuchsia-50' : 'bg-pink-600 text-white hover:bg-pink-700'} px-4 py-3.5 text-sm font-bold shadow-lg transition hover:-translate-y-0.5`}
             >
               {t('dashboard.buyService')}
             </Link>
@@ -189,7 +189,7 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
           <div className="text-center">
             <h3 className={`text-xl font-bold transition flex items-center justify-center gap-2 ${headingColor} ${hoverTextClass}`}>
               {profile.name}
-              {isAdmin && <span className="bg-zinc-700 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full uppercase border border-zinc-600 text-zinc-300">{t('common.admin')}</span>}
+              {isAdmin && <span className="bg-white/20 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full uppercase border border-white/30 text-white">{t('common.admin')}</span>}
             </h3>
             <p className={`mt-1 text-xs font-medium ${subtextColor}`}>
               {t('common.joined')} {formatDate(profile.start_date)}
@@ -239,7 +239,7 @@ export default function GirlCard({ profile, compact = false }: GirlCardProps) {
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Link
           href={`/girls/${profile.girl_id}`}
-          className={`inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold transition ${isAdmin ? 'bg-white text-zinc-900 hover:bg-zinc-100' : isNuitee ? 'bg-white text-fuchsia-700 hover:bg-fuchsia-50' : 'bg-pink-600 text-white hover:bg-pink-700'}`}
+          className={`inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold transition ${isAdmin ? 'bg-white text-[#DD2D4A] hover:bg-white/90' : isNuitee ? 'bg-white text-fuchsia-700 hover:bg-fuchsia-50' : 'bg-pink-600 text-white hover:bg-pink-700'}`}
         >
           {t('dashboard.buyService') || '+ Buy Service'}
         </Link>

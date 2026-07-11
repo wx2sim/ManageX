@@ -79,7 +79,7 @@ export default function PaymentForm({ girlId }: PaymentFormProps) {
         {/* Destination Toggle */}
         <div>
           <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
-            Payment Target
+            {t('payment.target') || 'Payment Target'}
           </label>
           <div className="flex bg-zinc-100 p-1 rounded-xl">
             <button
@@ -87,14 +87,14 @@ export default function PaymentForm({ girlId }: PaymentFormProps) {
               onClick={() => setDestination('service_debt')}
               className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${destination === 'service_debt' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
             >
-              Services Debt
+              {t('payment.servicesDebt') || 'Services Debt'}
             </button>
             <button
               type="button"
               onClick={() => setDestination('recurring_debt')}
               className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${destination === 'recurring_debt' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
             >
-              Recurring Charges
+              {t('payment.recurringCharges') || 'Recurring Charges'}
             </button>
           </div>
         </div>
@@ -102,7 +102,7 @@ export default function PaymentForm({ girlId }: PaymentFormProps) {
         {/* Currency Toggle */}
         <div>
           <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
-            Currency
+            {t('payment.currency') || 'Currency'}
           </label>
           <div className="flex bg-zinc-100 p-1 rounded-xl">
             <button
@@ -110,14 +110,14 @@ export default function PaymentForm({ girlId }: PaymentFormProps) {
               onClick={() => setCurrency('dzd')}
               className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${currency === 'dzd' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
             >
-              DZD
+              {t('payment.dzd') || 'DZD'}
             </button>
             <button
               type="button"
               onClick={() => setCurrency('euro')}
               className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${currency === 'euro' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
             >
-              EURO (€)
+              {t('payment.euro') || 'EURO (€)'}
             </button>
           </div>
         </div>
@@ -126,14 +126,14 @@ export default function PaymentForm({ girlId }: PaymentFormProps) {
         {currency === 'dzd' ? (
           <div>
             <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-              Amount (DZD)
+              {t('payment.amountLabel') || 'Amount (DZD)'}
             </label>
             <input
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
-              placeholder="e.g. 5000"
+              placeholder={t('payment.amountPlaceholder') || 'e.g. 5000'}
               min="1"
               className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100"
             />
@@ -143,14 +143,14 @@ export default function PaymentForm({ girlId }: PaymentFormProps) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-1">
-                  Euro Amount (€)
+                  {t('payment.euroAmount') || 'Euro Amount (€)'}
                 </label>
                 <input
                   type="number"
                   value={euroAmount}
                   onChange={(e) => setEuroAmount(e.target.value)}
                   required
-                  placeholder="e.g. 50"
+                  placeholder={t('payment.amountPlaceholder') || 'e.g. 50'}
                   min="0.1"
                   step="0.1"
                   className="w-full rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
@@ -158,7 +158,7 @@ export default function PaymentForm({ girlId }: PaymentFormProps) {
               </div>
               <div>
                 <label className="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-1">
-                  Exchange Rate
+                  {t('payment.exchangeRate') || 'Exchange Rate'}
                 </label>
                 <input
                   type="number"
@@ -214,7 +214,7 @@ export default function PaymentForm({ girlId }: PaymentFormProps) {
         disabled={isPending}
         className="w-full rounded-xl bg-pink-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-pink-500/20 transition hover:bg-pink-700 disabled:opacity-50"
       >
-        {isPending ? t('payment.loggingPayment') : (currency === 'euro' ? 'Save Euro & Pay Debt' : 'Pay Debt')}
+        {isPending ? t('payment.loggingPayment') : (currency === 'euro' ? (t('payment.saveEuroAndPay') || 'Save Euro & Pay Debt') : (t('payment.payDebt') || 'Pay Debt'))}
       </button>
     </form>
   );

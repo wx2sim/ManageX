@@ -135,10 +135,16 @@ export default function FixedPaymentForm({ girlId, templates }: FixedPaymentForm
               onChange={(e) => setRecurrence(e.target.value)}
               className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-900 transition focus:border-pink-400 focus:outline-none"
             >
-              <option value="manual">{t('fixed.manualOnly') || 'Manual Only (No Auto-charge)'}</option>
-              <option value="1">{t('fixed.daily') || 'Daily (Every 1 Day)'}</option>
-              <option value="7">{t('fixed.weekly') || 'Weekly (Every 7 Days)'}</option>
-              <option value="30">{t('fixed.monthly') || 'Monthly (Every 30 Days)'}</option>
+              <option value="manual">{t('fixed.manualOnly') || 'manual'}</option>
+              <option value="1">{t('fixed.days1') || '1'}</option>
+              <option value="2">{t('fixed.days2') || '2'}</option>
+              <option value="3">{t('fixed.days3') || '3'}</option>
+              <option value="4">{t('fixed.days4') || '4'}</option>
+              <option value="5">{t('fixed.days5') || '5'}</option>
+              <option value="6">{t('fixed.days6') || '6'}</option>
+              <option value="7">{t('fixed.weekly') || 'WEEK (7 days)'}</option>
+              <option value="15">{t('fixed.days15') || '15 DAYS'}</option>
+              <option value="30">{t('fixed.monthly') || 'Monthly starting from the day the template is excuted'}</option>
             </select>
           </div>
         </div>

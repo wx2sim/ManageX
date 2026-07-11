@@ -4,7 +4,7 @@ import { useOverlayTransition } from '@/lib/context/OverlayContext';
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Item, ServiceCategory, ServiceSubcategory, MarketInput, Recipe, RecipeIngredient } from '@/lib/types';
-import { addMarketInput, updateItem, deleteItem, deleteMarketInput } from '@/actions/market_logic';
+import { addMarketInput, updateItem, deleteItem, deleteMarketInput, updateMarketInput } from '@/actions/market_logic';
 import { addRecipe, produceRecipe, deleteRecipe } from '@/actions/recipes';
 import { formatDZD, formatDate } from '@/lib/utils/formatters';
 import { useTranslation } from '@/lib/i18n/useTranslation';
@@ -44,6 +44,14 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const [isPending, startTransition] = useOverlayTransition();
   const [error, setError] = useState<string | null>(null);
 
+  // Edit Input State
+  const [editingInput, setEditingInput] = useState<any>(null);
+  const [editInputQuantity, setEditInputQuantity] = useState('');
+  const [editInputBuyPrice, setEditInputBuyPrice] = useState('');
+  const [editInputSellPrice, setEditInputSellPrice] = useState('');
+  const [editInputDate, setEditInputDate] = useState('');
+  const [editInputCurrentStock, setEditInputCurrentStock] = useState('');
+
   const [isNewItem, setIsNewItem] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState('');
 
@@ -80,7 +88,9 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const [localCategories, setLocalCategories] = useState(categories);
   const [localSubcats, setLocalSubcats] = useState(subcategories);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLocalCategories(categories); }, [categories]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLocalSubcats(subcategories); }, [subcategories]);
 
   const filteredSubcategories = useMemo(() => {
@@ -201,7 +211,40 @@ export default function MarketStockClient({ items, categories, subcategories, ma
     }
   };
 
-  
+  const handleEditInputClick = (input: any) => {
+    setEditingInput(input);
+    setEditInputQuantity(input.quantity.toString());
+    setEditInputBuyPrice(input.unit_buy_price.toString());
+    setEditInputSellPrice(input.unit_sell_price.toString());
+    setEditInputDate(input.shopping_date.split('T')[0]);
+
+    // Find the current item to populate the current stock
+    const item = items.find(i => i.id === input.item_id);
+    if (item) {
+      setEditInputCurrentStock(item.stock_quantity.toString());
+    } else {
+      setEditInputCurrentStock('');
+    }
+  };
+
+  const handleUpdateInput = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingInput) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await updateMarketInput(editingInput.id, {
+        quantity: Number(editInputQuantity),
+        unit_buy_price: Number(editInputBuyPrice),
+        unit_sell_price: Number(editInputSellPrice),
+        shopping_date: editInputDate,
+        current_stock: editInputCurrentStock !== '' ? Number(editInputCurrentStock) : undefined
+      });
+      if (res?.error) setError(tError(res.error));
+      else setEditingInput(null);
+    });
+  };
+
+
 
   return (
     <div className={`space-y-6 ${isModal ? '' : 'animate-in slide-in-from-bottom-4 duration-500'}`}>
@@ -238,7 +281,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         )}
       </div>
 
-      
+
       {/* Quick Action Badges */}
       {!isModal && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -252,7 +295,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
             <h3 className="font-bold text-zinc-900">{t('market.tabs.input') || 'Stock Entry'}</h3>
             <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.inputDesc') || 'Ajouter un produit ou matière'}</p>
           </button>
-          
+
           <button
             onClick={() => setIsRecipesModalOpen(true)}
             className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:amber-200 transition group"
@@ -282,264 +325,264 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl p-6 md:p-8 border border-emerald-100 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200">
             <button onClick={() => setIsInputModalOpen(false)} className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-bold">&times;</button>
-            
-          <h2 className="text-xl font-bold text-zinc-900 mb-6">{t('market.input.title')}</h2>
 
-          <form onSubmit={handleInputSubmit} className="space-y-6">
-            <div className="flex items-center gap-4 bg-zinc-50 p-1.5 rounded-xl border border-zinc-200/60 inline-flex">
-              <button
-                type="button"
-                onClick={() => setIsNewItem(false)}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition ${!isNewItem ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
-              >
-                {t('market.input.existingProduct')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsNewItem(true)}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition ${isNewItem ? 'bg-white shadow-sm text-emerald-700' : 'text-zinc-500 hover:text-zinc-700'}`}
-              >
-                {t('market.input.addNewProduct')}
-              </button>
-            </div>
+            <h2 className="text-xl font-bold text-zinc-900 mb-6">{t('market.input.title')}</h2>
 
-            <div className="p-5 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-4">
-              {!isNewItem ? (
-                <div>
-                  <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
-                    {t('market.input.selectProduct')}
-                  </label>
-                  <select
-                    value={selectedItemId}
-                    onChange={handleItemSelect}
-                    required={!isNewItem}
-                    className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="">{t('market.input.chooseItem')}</option>
+            <form onSubmit={handleInputSubmit} className="space-y-6">
+              <div className="flex items-center gap-4 bg-zinc-50 p-1.5 rounded-xl border border-zinc-200/60 inline-flex">
+                <button
+                  type="button"
+                  onClick={() => setIsNewItem(false)}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition ${!isNewItem ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
+                >
+                  {t('market.input.existingProduct')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsNewItem(true)}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition ${isNewItem ? 'bg-white shadow-sm text-emerald-700' : 'text-zinc-500 hover:text-zinc-700'}`}
+                >
+                  {t('market.input.addNewProduct')}
+                </button>
+              </div>
 
-                    {rawMaterials.length > 0 && (
-                      <optgroup label={t('market.recipes.rawMaterials') || 'RAW MATERIALS'}>
-                        {rawMaterials.map(i => (
-                          <option key={i.id} value={i.id}>{i.name} ({i.stock_quantity} {i.unit})</option>
-                        ))}
-                      </optgroup>
-                    )}
-
-                    {localCategories.map(cat => (
-                      <optgroup key={cat.id} label={cat.name.replace('_', ' ').toUpperCase()}>
-                        {finishedProducts
-                          .filter(i => {
-                            const sub = subcategories.find(s => s.id === i.subcategory_id);
-                            return sub?.category_id === cat.id;
-                          })
-                          .map(i => (
-                            <option key={i.id} value={i.id}>{i.name} ({t('market.input.inStock')}: {i.stock_quantity})</option>
-                          ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                  {selectedItemId && lastBoughtPrice !== null && (
-                    <p className="mt-2 text-xs text-emerald-700 font-medium bg-emerald-100/50 p-2 rounded-lg border border-emerald-100">
-                      {t('market.input.lastBoughtFor').replace('{buyPrice}', formatDZD(lastBoughtPrice)).replace('{sellPrice}', formatDZD(lastSellPrice || 0))}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setNewItemType('raw_material')}
-                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${newItemType === 'raw_material' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-white border border-zinc-200 text-zinc-500'}`}
-                    >
-                      {t('market.recipes.rawMaterialToggle') || 'Raw Material (Bulk)'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewItemType('finished')}
-                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${newItemType === 'finished' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-white border border-zinc-200 text-zinc-500'}`}
-                    >
-                      {t('market.recipes.finishedProductToggle') || 'Finished Product'}
-                    </button>
-                  </div>
-
+              <div className="p-5 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-4">
+                {!isNewItem ? (
                   <div>
                     <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
-                      {t('market.input.newProductName')}
+                      {t('market.input.selectProduct')}
                     </label>
-                    <input
-                      type="text"
-                      value={newItemName}
-                      onChange={(e) => setNewItemName(e.target.value)}
-                      required={isNewItem}
-                      placeholder={t('market.input.newProductNamePlaceholder')}
+                    <select
+                      value={selectedItemId}
+                      onChange={handleItemSelect}
+                      required={!isNewItem}
                       className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
+                    >
+                      <option value="">{t('market.input.chooseItem')}</option>
 
-                  {newItemType === 'raw_material' && (
+                      {rawMaterials.length > 0 && (
+                        <optgroup label={t('market.recipes.rawMaterials') || 'RAW MATERIALS'}>
+                          {rawMaterials.map(i => (
+                            <option key={i.id} value={i.id}>{i.name} ({i.stock_quantity} {i.unit})</option>
+                          ))}
+                        </optgroup>
+                      )}
+
+                      {localCategories.map(cat => (
+                        <optgroup key={cat.id} label={cat.name.replace('_', ' ').toUpperCase()}>
+                          {finishedProducts
+                            .filter(i => {
+                              const sub = subcategories.find(s => s.id === i.subcategory_id);
+                              return sub?.category_id === cat.id;
+                            })
+                            .map(i => (
+                              <option key={i.id} value={i.id}>{i.name} ({t('market.input.inStock')}: {i.stock_quantity})</option>
+                            ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    {selectedItemId && lastBoughtPrice !== null && (
+                      <p className="mt-2 text-xs text-emerald-700 font-medium bg-emerald-100/50 p-2 rounded-lg border border-emerald-100">
+                        {t('market.input.lastBoughtFor').replace('{buyPrice}', formatDZD(lastBoughtPrice)).replace('{sellPrice}', formatDZD(lastSellPrice || 0))}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setNewItemType('raw_material')}
+                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${newItemType === 'raw_material' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-white border border-zinc-200 text-zinc-500'}`}
+                      >
+                        {t('market.recipes.rawMaterialToggle') || 'Raw Material (Bulk)'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewItemType('finished')}
+                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${newItemType === 'finished' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-white border border-zinc-200 text-zinc-500'}`}
+                      >
+                        {t('market.recipes.finishedProductToggle') || 'Finished Product'}
+                      </button>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
-                        {t('market.recipes.unitLabel') || 'Unit of Measurement'}
+                        {t('market.input.newProductName')}
                       </label>
-                      <select
-                        value={newItemUnit}
-                        onChange={(e) => setNewItemUnit(e.target.value)}
+                      <input
+                        type="text"
+                        value={newItemName}
+                        onChange={(e) => setNewItemName(e.target.value)}
+                        required={isNewItem}
+                        placeholder={t('market.input.newProductNamePlaceholder')}
                         className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
-                      >
-                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                      </select>
+                      />
                     </div>
-                  )}
 
-                  {newItemType === 'finished' && (
-                    <div className="grid grid-cols-2 gap-4">
+                    {newItemType === 'raw_material' && (
                       <div>
                         <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
-                          {t('market.input.category')}
+                          {t('market.recipes.unitLabel') || 'Unit of Measurement'}
                         </label>
                         <select
-                          value={newItemCategoryId}
-                          onChange={(e) => setNewItemCategoryId(e.target.value)}
-                          required={isNewItem && newItemType === 'finished'}
+                          value={newItemUnit}
+                          onChange={(e) => setNewItemUnit(e.target.value)}
                           className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
                         >
-                          <option value="">{t('market.input.choose')}</option>
-                          {localCategories.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
+                          {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
-                          {t('market.input.subcategory')}
-                        </label>
-                        <select
-                          value={newItemSubcategoryId}
-                          onChange={(e) => setNewItemSubcategoryId(e.target.value)}
-                          required={isNewItem && newItemType === 'finished'}
-                          className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
-                          disabled={!newItemCategoryId}
-                        >
-                          <option value="">{t('market.input.choose')}</option>
-                          {filteredSubcategories.map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
+                    )}
+
+                    {newItemType === 'finished' && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
+                            {t('market.input.category')}
+                          </label>
+                          <select
+                            value={newItemCategoryId}
+                            onChange={(e) => setNewItemCategoryId(e.target.value)}
+                            required={isNewItem && newItemType === 'finished'}
+                            className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
+                          >
+                            <option value="">{t('market.input.choose')}</option>
+                            {localCategories.map(c => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
+                            {t('market.input.subcategory')}
+                          </label>
+                          <select
+                            value={newItemSubcategoryId}
+                            onChange={(e) => setNewItemSubcategoryId(e.target.value)}
+                            required={isNewItem && newItemType === 'finished'}
+                            className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
+                            disabled={!newItemCategoryId}
+                          >
+                            <option value="">{t('market.input.choose')}</option>
+                            {filteredSubcategories.map(s => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
+                        {t('market.input.selectIcon')}
+                      </label>
+                      <div className="grid grid-cols-8 gap-2 bg-white p-3 rounded-xl border border-emerald-200 max-h-32 overflow-y-auto">
+                        {PREDEFINED_ICONS.map(icon => (
+                          <button
+                            key={icon}
+                            type="button"
+                            onClick={() => setNewItemImage(icon)}
+                            className={`text-2xl p-1 rounded-lg transition hover:bg-emerald-50 hover:scale-110 ${newItemImage === icon ? 'bg-emerald-100 ring-2 ring-emerald-500 scale-110' : ''}`}
+                          >
+                            {icon}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  )}
 
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
-                      {t('market.input.selectIcon')}
-                    </label>
-                    <div className="grid grid-cols-8 gap-2 bg-white p-3 rounded-xl border border-emerald-200 max-h-32 overflow-y-auto">
-                      {PREDEFINED_ICONS.map(icon => (
-                        <button
-                          key={icon}
-                          type="button"
-                          onClick={() => setNewItemImage(icon)}
-                          className={`text-2xl p-1 rounded-lg transition hover:bg-emerald-50 hover:scale-110 ${newItemImage === icon ? 'bg-emerald-100 ring-2 ring-emerald-500 scale-110' : ''}`}
-                        >
-                          {icon}
-                        </button>
-                      ))}
+                    <div>
+                      <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
+                        {t('market.input.minStockAlert') || 'Alerte Stock Minimum (Min Stock Alert)'}
+                      </label>
+                      <input
+                        type="number"
+                        value={newItemMinStockAlert}
+                        onChange={(e) => setNewItemMinStockAlert(e.target.value)}
+                        placeholder={t('market.input.optionalAlert') || 'e.g. 5 (Optionnel)'}
+                        className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
+                      />
                     </div>
                   </div>
+                )}
+              </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
-                      {t('market.input.minStockAlert') || 'Alerte Stock Minimum (Min Stock Alert)'}
-                    </label>
-                    <input
-                      type="number"
-                      value={newItemMinStockAlert}
-                      onChange={(e) => setNewItemMinStockAlert(e.target.value)}
-                      placeholder={t('market.input.optionalAlert') || 'e.g. 5 (Optionnel)'}
-                      className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="col-span-2 md:col-span-1">
+                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                    {t('market.input.quantity')}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    required
+                    placeholder={t('market.input.quantityPlaceholder')}
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div className="col-span-2 md:col-span-1">
+                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                    {t('market.input.buyPrice')}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={buyPrice}
+                    onChange={(e) => setBuyPrice(e.target.value)}
+                    required
+                    placeholder="DZD"
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div className="col-span-2 md:col-span-1">
+                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                    {t('market.input.sellPrice')}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={sellPrice}
+                    onChange={(e) => setSellPrice(e.target.value)}
+                    required={newItemType === 'finished'}
+                    disabled={newItemType === 'raw_material'}
+                    placeholder={newItemType === 'raw_material' ? 'N/A' : 'DZD'}
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                  />
+                </div>
+                <div className="col-span-2 md:col-span-1">
+                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                    {t('market.input.date')}
+                  </label>
+                  <input
+                    type="date"
+                    value={shoppingDate}
+                    onChange={(e) => setShoppingDate(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="bg-rose-50 text-rose-600 p-4 rounded-xl border border-rose-200 text-sm font-semibold">
+                  {error}
                 </div>
               )}
-            </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="col-span-2 md:col-span-1">
-                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
-                  {t('market.input.quantity')}
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  required
-                  placeholder={t('market.input.quantityPlaceholder')}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-              <div className="col-span-2 md:col-span-1">
-                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
-                  {t('market.input.buyPrice')}
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={buyPrice}
-                  onChange={(e) => setBuyPrice(e.target.value)}
-                  required
-                  placeholder="DZD"
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-              <div className="col-span-2 md:col-span-1">
-                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
-                  {t('market.input.sellPrice')}
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={sellPrice}
-                  onChange={(e) => setSellPrice(e.target.value)}
-                  required={newItemType === 'finished'}
-                  disabled={newItemType === 'raw_material'}
-                  placeholder={newItemType === 'raw_material' ? 'N/A' : 'DZD'}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                />
-              </div>
-              <div className="col-span-2 md:col-span-1">
-                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
-                  {t('market.input.date')}
-                </label>
-                <input
-                  type="date"
-                  value={shoppingDate}
-                  onChange={(e) => setShoppingDate(e.target.value)}
-                  required
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="w-full rounded-xl bg-emerald-600 px-4 py-4 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {isPending ? t('market.input.loggingPurchase') : t('market.input.logPurchase')}
+              </button>
 
-            {error && (
-              <div className="bg-rose-50 text-rose-600 p-4 rounded-xl border border-rose-200 text-sm font-semibold">
-                {error}
-              </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={isPending}
-              className="w-full rounded-xl bg-emerald-600 px-4 py-4 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {isPending ? t('market.input.loggingPurchase') : t('market.input.logPurchase')}
-            </button>
-
-          
-          </form>
+            </form>
           </div>
         </div>
       )}
@@ -549,19 +592,19 @@ export default function MarketStockClient({ items, categories, subcategories, ma
           <div className="bg-white rounded-3xl p-6 md:p-8 border border-zinc-200 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200">
             <button onClick={() => setIsRecipesModalOpen(false)} className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-bold z-10">&times;</button>
             <RecipesTab
-          items={items}
-          categories={localCategories}
-          subcategories={localSubcats}
-          recipes={recipes}
-          recipeIngredients={recipeIngredients}
-          t={t}
-          tError={tError}
-          isModal={isModal}
-          onSuccessModal={onSuccessModal ? () => {
-            setSuccessMessage(t('common.success') || 'Success!');
-            setTimeout(() => onSuccessModal(), 1500);
-          } : undefined}
-        />
+              items={items}
+              categories={localCategories}
+              subcategories={localSubcats}
+              recipes={recipes}
+              recipeIngredients={recipeIngredients}
+              t={t}
+              tError={tError}
+              isModal={isModal}
+              onSuccessModal={onSuccessModal ? () => {
+                setSuccessMessage(t('common.success') || 'Success!');
+                setTimeout(() => onSuccessModal(), 1500);
+              } : undefined}
+            />
           </div>
         </div>
       )}
@@ -570,13 +613,14 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       {!isModal && (
         <div className="mt-12">
           <LedgerTab
-          marketInputs={marketInputs}
-          items={items}
-          monthFilter={monthFilter}
-          setMonthFilter={setMonthFilter}
-          t={t}
-          handleDeleteInput={handleDeleteInput}
-        />
+            marketInputs={marketInputs}
+            items={items}
+            monthFilter={monthFilter}
+            setMonthFilter={setMonthFilter}
+            t={t}
+            handleDeleteInput={handleDeleteInput}
+            handleEditInputClick={handleEditInputClick}
+          />
         </div>
       )}
 
@@ -586,17 +630,17 @@ export default function MarketStockClient({ items, categories, subcategories, ma
             <button onClick={() => setIsCategoriesModalOpen(false)} className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-bold z-10">&times;</button>
             <div className="mt-4">
               <CategoryManagementTab
-          categories={localCategories}
-          subcategories={localSubcats}
-          onCategoryAdded={(cat: ServiceCategory) => setLocalCategories(prev => [...prev, cat].sort((a, b) => a.position - b.position))}
-          onSubcategoryAdded={(sub: ServiceSubcategory) => setLocalSubcats(prev => [...prev, sub].sort((a, b) => a.position - b.position))}
-          onCategoryDeleted={(id: string) => setLocalCategories(prev => prev.filter(c => c.id !== id))}
-          onSubcategoryDeleted={(id: string) => setLocalSubcats(prev => prev.filter(s => s.id !== id))}
-          onCategoryUpdated={(cat: ServiceCategory) => setLocalCategories(prev => prev.map(c => c.id === cat.id ? cat : c))}
-          onSubcategoryUpdated={(sub: ServiceSubcategory) => setLocalSubcats(prev => prev.map(s => s.id === sub.id ? sub : s))}
-          t={t}
-          tError={tError}
-        />
+                categories={localCategories}
+                subcategories={localSubcats}
+                onCategoryAdded={(cat: ServiceCategory) => setLocalCategories(prev => [...prev, cat].sort((a, b) => a.position - b.position))}
+                onSubcategoryAdded={(sub: ServiceSubcategory) => setLocalSubcats(prev => [...prev, sub].sort((a, b) => a.position - b.position))}
+                onCategoryDeleted={(id: string) => setLocalCategories(prev => prev.filter(c => c.id !== id))}
+                onSubcategoryDeleted={(id: string) => setLocalSubcats(prev => prev.filter(s => s.id !== id))}
+                onCategoryUpdated={(cat: ServiceCategory) => setLocalCategories(prev => prev.map(c => c.id === cat.id ? cat : c))}
+                onSubcategoryUpdated={(sub: ServiceSubcategory) => setLocalSubcats(prev => prev.map(s => s.id === sub.id ? sub : s))}
+                t={t}
+                tError={tError}
+              />
             </div>
           </div>
         </div>
@@ -648,6 +692,103 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         </div>
       )}
 
+      {/* Edit Market Input Modal */}
+      {editingInput && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-3xl border border-emerald-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-emerald-100 p-5 bg-white">
+              <div>
+                <h2 className="text-lg font-bold text-zinc-950">{t('market.input.editPurchase') || 'Edit Purchase'}</h2>
+                <p className="text-xs text-zinc-500 mt-0.5">{editingInput.items?.name}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingInput(null)}
+                className="text-lg text-zinc-400 hover:text-zinc-600 focus:outline-none"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleUpdateInput} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase mb-1">{t('common.date') || 'Date'}</label>
+                <input
+                  type="date"
+                  value={editInputDate}
+                  onChange={e => setEditInputDate(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm transition focus:border-emerald-400 focus:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 uppercase mb-1">{t('market.input.quantityPurchased') || 'Quantity (Purchased)'}</label>
+                  <input
+                    type="number"
+                    value={editInputQuantity}
+                    onChange={e => setEditInputQuantity(e.target.value)}
+                    min="1"
+                    required
+                    className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm transition focus:border-emerald-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-amber-700 uppercase mb-1">{t('market.input.currentStock') || 'Current Stock'}</label>
+                  <input
+                    type="number"
+                    value={editInputCurrentStock}
+                    onChange={e => setEditInputCurrentStock(e.target.value)}
+                    min="0"
+                    className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm transition focus:border-amber-400 focus:outline-none font-bold"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase mb-1">{t('market.input.buyPrice') || 'Buy Price'} (/u)</label>
+                <input
+                  type="number"
+                  value={editInputBuyPrice}
+                  onChange={e => setEditInputBuyPrice(e.target.value)}
+                  min="0"
+                  step="0.01"
+                  required
+                  className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm transition focus:border-emerald-400 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase mb-1">{t('market.input.sellPrice') || 'Sell Price'} (/u)</label>
+                <input
+                  type="number"
+                  value={editInputSellPrice}
+                  onChange={e => setEditInputSellPrice(e.target.value)}
+                  min="0"
+                  step="0.01"
+                  required
+                  className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm transition focus:border-emerald-400 focus:outline-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingInput(null)}
+                  disabled={isPending}
+                  className="flex-1 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  {isPending ? t('common.loading') : t('common.save')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -678,7 +819,7 @@ function RecipesTab({ items, categories, subcategories, recipes, recipeIngredien
       {isCreating ? (
         <RecipeForm
           finishedProducts={finishedProducts}
-          rawMaterials={rawMaterials}
+          allItems={items}
           categories={categories}
           subcategories={subcategories}
           onCancel={() => setIsCreating(false)}
@@ -725,7 +866,7 @@ function RecipesTab({ items, categories, subcategories, recipes, recipeIngredien
   );
 }
 
-function RecipeForm({ finishedProducts, rawMaterials, categories, subcategories, onCancel, t, tError, isModal, onSuccessModal }: any) {
+function RecipeForm({ finishedProducts, allItems, categories, subcategories, onCancel, t, tError, isModal, onSuccessModal }: any) {
   const [isPending, startTransition] = useOverlayTransition();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -742,6 +883,31 @@ function RecipeForm({ finishedProducts, rawMaterials, categories, subcategories,
   const [ingredients, setIngredients] = useState<{ raw_material_id: string; quantity_needed: string }[]>([
     { raw_material_id: '', quantity_needed: '' }
   ]);
+
+  const groupedItems = useMemo(() => {
+    const rawMap: Record<string, any[]> = {};
+    const finMap: Record<string, any[]> = {};
+    
+    allItems?.forEach((item: any) => {
+      let groupName = t('market.recipes.uncategorized') || 'Uncategorized';
+      if (item.category_id) {
+        const cat = categories?.find((c: any) => c.id === item.category_id);
+        const sub = subcategories?.find((s: any) => s.id === item.subcategory_id);
+        if (cat) {
+          groupName = sub ? `${cat.name} - ${sub.name}` : cat.name;
+        }
+      }
+      
+      if (item.item_type === 'raw_material') {
+        if (!rawMap[groupName]) rawMap[groupName] = [];
+        rawMap[groupName].push(item);
+      } else {
+        if (!finMap[groupName]) finMap[groupName] = [];
+        finMap[groupName].push(item);
+      }
+    });
+    return { rawMap, finMap };
+  }, [allItems, categories, subcategories, t]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -777,6 +943,13 @@ function RecipeForm({ finishedProducts, rawMaterials, categories, subcategories,
       }
     });
   };
+
+  const totalCost = ingredients.reduce((sum, ing) => {
+    const qty = Number(ing.quantity_needed) || 0;
+    const item = allItems?.find((i: Item) => i.id === ing.raw_material_id);
+    return sum + (qty * (item?.cost_price || 0));
+  }, 0);
+  const costPerUnit = Number(batchQuantity) > 0 ? totalCost / Number(batchQuantity) : 0;
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm max-w-2xl space-y-6">
@@ -904,9 +1077,38 @@ function RecipeForm({ finishedProducts, rawMaterials, categories, subcategories,
               className="flex-1 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm focus:border-emerald-500 focus:outline-none"
             >
               <option value="">{t('market.input.chooseItem')}</option>
-              {rawMaterials.map((rm: Item) => (
-                <option key={rm.id} value={rm.id}>{rm.name} ({rm.unit})</option>
-              ))}
+              
+              {/* Raw Materials Group */}
+              {Object.keys(groupedItems.rawMap).length > 0 && (
+                <optgroup label={`── ${t('market.recipes.rawMaterials') || 'RAW MATERIALS'} ──`} className="bg-amber-50 text-amber-900 font-bold" />
+              )}
+              {Object.entries(groupedItems.rawMap)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([groupName, itemsInGroup]) => (
+                  <optgroup key={`raw-${groupName}`} label={`${groupName}`}>
+                    {itemsInGroup
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((item: any) => (
+                        <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
+                      ))}
+                  </optgroup>
+                ))}
+
+              {/* Finished Products Group */}
+              {Object.keys(groupedItems.finMap).length > 0 && (
+                <optgroup label={`── ${t('market.recipes.finishedProduct') || 'FINISHED PRODUCTS'} ──`} className="bg-emerald-50 text-emerald-900 font-bold" />
+              )}
+              {Object.entries(groupedItems.finMap)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([groupName, itemsInGroup]) => (
+                  <optgroup key={`fin-${groupName}`} label={`${groupName}`}>
+                    {itemsInGroup
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((item: any) => (
+                        <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
+                      ))}
+                  </optgroup>
+                ))}
             </select>
             <input
               type="number"
@@ -943,6 +1145,17 @@ function RecipeForm({ finishedProducts, rawMaterials, categories, subcategories,
       </div>
 
       {error && <p className="text-rose-600 text-sm font-semibold bg-rose-50 p-3 rounded-xl">{error}</p>}
+
+      <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-bold text-emerald-800 uppercase">{t('market.recipes.calculatedCost') || 'Calculated Cost'}</p>
+          <p className="text-[10px] text-emerald-600 mt-0.5">{t('market.recipes.basedOnBuyPrice') || 'Based on ingredients buy price'}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-sm font-bold text-zinc-900">{totalCost.toLocaleString()} DZD <span className="text-xs font-normal text-zinc-500">{t('market.recipes.total') || 'total'}</span></p>
+          <p className="text-xs font-semibold text-emerald-700 mt-0.5">{costPerUnit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DZD <span className="font-normal opacity-70">{t('market.recipes.perUnit') || 'per unit'}</span></p>
+        </div>
+      </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-bold text-zinc-500 hover:text-zinc-800">
@@ -1090,7 +1303,7 @@ function ProduceModal({ recipeId, recipe, ingredients, rawMaterials, onClose, t,
 }
 
 // Ledger and Category management tabs (preserved functionality)
-function LedgerTab({ marketInputs, items, monthFilter, setMonthFilter, t, handleDeleteInput }: any) {
+function LedgerTab({ marketInputs, items, monthFilter, setMonthFilter, t, handleDeleteInput, handleEditInputClick }: any) {
   // Calculate FIFO remaining stock per batch dynamically
   const batchRemainingStock = useMemo(() => {
     const grouped: Record<string, any[]> = marketInputs.reduce((acc: any, input: any) => {
@@ -1106,7 +1319,7 @@ function LedgerTab({ marketInputs, items, monthFilter, setMonthFilter, t, handle
       let globalStock = item?.stock_quantity ?? 0;
 
       // Sort from newest to oldest
-      const sortedInputs = grouped[itemId].sort((a: any, b: any) => 
+      const sortedInputs = grouped[itemId].sort((a: any, b: any) =>
         new Date(b.shopping_date).getTime() - new Date(a.shopping_date).getTime()
       );
 
@@ -1126,18 +1339,18 @@ function LedgerTab({ marketInputs, items, monthFilter, setMonthFilter, t, handle
   }, [marketInputs, items]);
 
   const filteredLedger = useMemo(() => {
-    const list = !monthFilter 
-      ? [...marketInputs] 
+    const list = !monthFilter
+      ? [...marketInputs]
       : marketInputs.filter((m: any) => m.shopping_date.startsWith(monthFilter));
 
     // Sort: items with stock > 0 first, then stock <= 0
     return list.sort((a: any, b: any) => {
       const stockA = batchRemainingStock[a.id] ?? 0;
       const stockB = batchRemainingStock[b.id] ?? 0;
-      
+
       if (stockA > 0 && stockB <= 0) return -1;
       if (stockA <= 0 && stockB > 0) return 1;
-      
+
       // Secondary sorting: date (newest first)
       return new Date(b.shopping_date).getTime() - new Date(a.shopping_date).getTime();
     });
@@ -1232,17 +1445,29 @@ function LedgerTab({ marketInputs, items, monthFilter, setMonthFilter, t, handle
                       {formatDZD(row.quantity * row.unit_sell_price)}
                     </td>
                     <td className="px-4 py-4 text-right">
-                      <button
-                        onClick={() => handleDeleteInput(row.id)}
-                        className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                        title="Delete Purchase"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 6h18"></path>
-                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                        </svg>
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleEditInputClick && handleEditInputClick(row)}
+                          className="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                          title="Edit Purchase"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteInput(row.id)}
+                          className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Delete Purchase"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -1402,7 +1627,7 @@ function CategoryManagementTab({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {categories.map((cat: any) => {
             const catSubcats = subcategories?.filter((s: any) => s.category_id === cat.id) || [];
-            
+
             return (
               <div key={cat.id} className="border border-zinc-200 rounded-2xl overflow-hidden bg-zinc-50 flex flex-col">
                 <div className="p-4 border-b border-zinc-200 bg-white flex justify-between items-center">

@@ -303,3 +303,107 @@ export async function deleteMarketInput(inputId: string) {
     return { error: err.message || 'Something went wrong' };
   }
 }
+
+/**
+ * UPDATE MARKET INPUT: Modifies an existing purchase, adjusts stock, and updates global transaction.
+ */
+export async function updateMarketInput(inputId: string, data: {
+  quantity: number;
+  unit_buy_price: number;
+  unit_sell_price: number;
+  shopping_date: string;
+  current_stock?: number;
+}) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    // 1. Fetch current input
+    const { data: input, error: fetchError } = await supabase
+      .from('market_inputs')
+      .select('*')
+      .eq('id', inputId)
+      .single();
+
+    if (fetchError || !input) return { error: 'Market input not found' };
+
+    // 2. Adjust item stock
+    const { data: item } = await supabase
+      .from('items')
+      .select('stock_quantity')
+      .eq('id', input.item_id)
+      .single();
+
+    if (item) {
+      let newStock = Number(item.stock_quantity);
+
+      // If the user explicitly provided a new current_stock, use that.
+      // Otherwise, automatically calculate the difference from the purchase quantity change.
+      if (data.current_stock !== undefined && data.current_stock !== null && !isNaN(data.current_stock)) {
+        newStock = data.current_stock;
+      } else {
+        const stockDiff = data.quantity - input.quantity;
+        newStock = Math.max(0, newStock + stockDiff);
+      }
+
+      await supabase
+        .from('items')
+        .update({
+          stock_quantity: newStock,
+          cost_price: data.unit_buy_price,
+          sell_price: data.unit_sell_price
+        })
+        .eq('id', input.item_id);
+    }
+
+    // 3. Update global transaction
+    const newTotalWorth = data.quantity * data.unit_buy_price;
+
+    // Delete old transaction if it existed
+    if (input.total_worth > 0) {
+      await supabase
+        .from('transactions')
+        .delete()
+        .eq('type', 'market_expense')
+        .eq('amount', -input.total_worth)
+        .eq('transaction_date', input.shopping_date);
+    }
+
+    // Insert new transaction if new total worth > 0
+    if (newTotalWorth > 0) {
+      await supabase
+        .from('transactions')
+        .insert({
+          profile_id: user.id,
+          type: 'market_expense',
+          amount: -newTotalWorth,
+          note: `[MARKET_STOCK] Purchase of ${data.quantity} units`,
+          transaction_date: data.shopping_date
+        });
+    }
+
+    // 4. Update market input
+    const { error: updateError } = await supabase
+      .from('market_inputs')
+      .update({
+        quantity: data.quantity,
+        unit_buy_price: data.unit_buy_price,
+        unit_sell_price: data.unit_sell_price,
+        total_worth: newTotalWorth,
+        shopping_date: data.shopping_date
+      })
+      .eq('id', inputId);
+
+    if (updateError) return { error: `Failed to update input: ${updateError.message}` };
+
+    revalidatePath('/stock');
+    revalidatePath('/statistics');
+    revalidatePath('/', 'layout');
+
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || 'Something went wrong' };
+  }
+}
+

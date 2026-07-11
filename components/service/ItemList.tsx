@@ -147,7 +147,7 @@ export default function ItemList({ girlId, subcategoryId, items, girl }: ItemLis
             {isAdmin && (
               <div className="bg-zinc-850 text-zinc-200 text-xxs font-bold px-3.5 py-2.5 rounded-2xl flex items-center gap-2 border border-zinc-700 bg-zinc-900">
                 <span>🛡️</span>
-                <span>ADMIN PRICING ACTIVE (BUY PRICES APPLIED)</span>
+                <span>{t('service.adminPricingActive') || 'ADMIN PRICING ACTIVE (BUY PRICES APPLIED)'}</span>
               </div>
             )}
 
