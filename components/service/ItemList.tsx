@@ -35,7 +35,8 @@ export default function ItemList({ girlId, subcategoryId, items, girl }: ItemLis
     return items.filter((item) => {
       const isFinished = item.item_type === 'finished' || !item.item_type;
       const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
-      return isFinished && matchesSearch;
+      const isInStock = item.stock_quantity > 0;
+      return isFinished && matchesSearch && isInStock;
     });
   }, [items, search]);
 

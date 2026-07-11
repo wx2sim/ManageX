@@ -1,6 +1,8 @@
 export const fr = {
   common: {
     back: 'Retour',
+    loadMore: 'Afficher plus',
+    showLess: 'Afficher moins',
     save: 'Enregistrer',
     cancel: 'Annuler',
     delete: 'Supprimer',

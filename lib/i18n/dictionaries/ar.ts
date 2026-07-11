@@ -3,6 +3,8 @@ import { fr } from './fr';
 export const ar: typeof fr = {
   common: {
     back: 'رجوع',
+    loadMore: 'عرض المزيد',
+    showLess: 'عرض أقل',
     save: 'حفظ',
     cancel: 'إلغاء',
     delete: 'حذف',

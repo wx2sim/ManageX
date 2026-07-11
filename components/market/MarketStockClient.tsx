@@ -261,13 +261,23 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
       {/* Available Products Grid */}
       <div className="mb-8 space-y-4">
-        <h2 className="text-xl font-bold text-zinc-900">{t('market.input.existingProduct') || 'Available Products'}</h2>
-        {finishedProducts.length === 0 ? (
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-zinc-900">{t('market.input.existingProduct') || 'Available Products'}</h2>
+          {finishedProducts.filter(item => item.stock_quantity > 0).length > 5 && (
+            <button
+              onClick={() => setShowAllProducts(!showAllProducts)}
+              className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition"
+            >
+              {showAllProducts ? t('common.showLess') || 'Show less' : t('common.loadMore') || 'Load more'}
+            </button>
+          )}
+        </div>
+        {finishedProducts.filter(item => item.stock_quantity > 0).length === 0 ? (
           <p className="text-sm text-zinc-500">{t('common.noData') || 'No products available.'}</p>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {finishedProducts.map((item) => (
+              {finishedProducts.filter(item => item.stock_quantity > 0).slice(0, showAllProducts ? undefined : 5).map((item) => (
                 <ItemCard
                   key={item.id}
                   item={item}
@@ -277,6 +287,28 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                 />
               ))}
             </div>
+            {finishedProducts.filter(item => item.stock_quantity > 0).length > 5 && !showAllProducts && (
+              <div className="flex justify-center mt-2">
+                <button
+                  onClick={() => setShowAllProducts(true)}
+                  className="px-6 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-sm font-semibold rounded-full transition flex items-center gap-2"
+                >
+                  {t('common.loadMore') || 'Load more'}
+                  <span className="text-xs">↓</span>
+                </button>
+              </div>
+            )}
+            {showAllProducts && (
+              <div className="flex justify-center mt-2">
+                <button
+                  onClick={() => setShowAllProducts(false)}
+                  className="px-6 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-sm font-semibold rounded-full transition flex items-center gap-2"
+                >
+                  {t('common.showLess') || 'Show less'}
+                  <span className="text-xs">↑</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
