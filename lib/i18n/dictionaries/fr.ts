@@ -3,6 +3,8 @@ export const fr = {
     back: 'Retour',
     loadMore: 'Afficher plus',
     showLess: 'Afficher moins',
+    undo: 'Annuler l\'opération',
+    confirmUndo: 'Voulez-vous vraiment annuler cette opération ?',
     save: 'Enregistrer',
     cancel: 'Annuler',
     delete: 'Supprimer',

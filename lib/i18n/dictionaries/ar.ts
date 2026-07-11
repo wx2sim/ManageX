@@ -5,6 +5,8 @@ export const ar: typeof fr = {
     back: 'رجوع',
     loadMore: 'عرض المزيد',
     showLess: 'عرض أقل',
+    undo: 'تراجع',
+    confirmUndo: 'هل أنت متأكد أنك تريد التراجع عن هذه العملية؟',
     save: 'حفظ',
     cancel: 'إلغاء',
     delete: 'حذف',

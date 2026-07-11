@@ -115,3 +115,65 @@ export async function addBonus(girlId: string, amount: number, note: string) {
     return { error: err.message || 'Something went wrong' };
   }
 }
+
+export async function undoTransaction(transactionId: string) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    // 1. Fetch transaction to get its type and girl_id
+    const { data: tx, error: txError } = await supabase
+      .from('transactions')
+      .select('id, type, girl_id')
+      .eq('id', transactionId)
+      .single();
+
+    if (txError || !tx) return { error: txError?.message || 'Transaction not found' };
+
+    // 2. If it's a service, we need to restock items
+    if (tx.type === 'service') {
+      const { data: items } = await supabase
+        .from('transaction_items')
+        .select('item_id, quantity')
+        .eq('transaction_id', transactionId);
+
+      if (items && items.length > 0) {
+        // Fetch current stock for these items
+        const itemIds = items.map(i => i.item_id);
+        const { data: currentItems } = await supabase
+          .from('items')
+          .select('id, stock_quantity')
+          .in('id', itemIds);
+
+        if (currentItems && currentItems.length > 0) {
+          const updatePromises = currentItems.map(curr => {
+            const consumed = items.find(i => i.item_id === curr.id)?.quantity || 0;
+            return supabase
+              .from('items')
+              .update({ stock_quantity: curr.stock_quantity + consumed }) // RESTOCK
+              .eq('id', curr.id);
+          });
+          await Promise.all(updatePromises);
+        }
+      }
+    }
+
+    // 3. Delete transaction (Cascade will handle transaction_items, bonuses, etc.)
+    const { error: deleteError } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('id', transactionId);
+
+    if (deleteError) return { error: deleteError.message };
+
+    revalidatePath('/');
+    revalidatePath(`/girls/${tx.girl_id}`);
+    revalidatePath(`/girls/${tx.girl_id}/statistics`);
+    
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error undoing transaction:', err);
+    return { error: err.message || 'Something went wrong' };
+  }
+}

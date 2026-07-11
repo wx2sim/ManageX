@@ -34,6 +34,7 @@ export default function StatsTable({
   const [specificDateFilter, setSpecificDateFilter] = useState('');
   const [residentFilter, setResidentFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [undoingId, setUndoingId] = useState<string | null>(null);
 
   // Bonus Extraction Modal State
   const [isExtractModalOpen, setIsExtractModalOpen] = useState(false);
@@ -136,6 +137,20 @@ export default function StatsTable({
     setExtractAmountStr(summary.bonusReceived.toString());
     setExtractError(null);
     setIsExtractModalOpen(true);
+  };
+
+  const handleUndo = (txId: string) => {
+    if (confirm(t('common.confirmUndo') || 'Are you sure you want to undo this operation?')) {
+      setUndoingId(txId);
+      startTransition(async () => {
+        const { undoTransaction } = await import('@/actions/transactions');
+        const res = await undoTransaction(txId);
+        if (res?.error) {
+          alert(res.error);
+        }
+        setUndoingId(null);
+      });
+    }
   };
 
   const handleExtractSubmit = (e: React.FormEvent) => {
@@ -573,12 +588,13 @@ export default function StatsTable({
                 <th className="py-4 px-6">{t('statsTable.tableType')}</th>
                 <th className="py-4 px-6">{t('statsTable.tableAmount')}</th>
                 <th className="py-4 px-6">{t('statsTable.tableNote')}</th>
+                <th className="py-4 px-4 text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-pink-50 text-xs">
               {filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={showGirlColumn ? 5 : 4} className="py-12 text-center text-zinc-400 font-medium">
+                  <td colSpan={showGirlColumn ? 6 : 5} className="py-12 text-center text-zinc-400 font-medium">
                     {t('statsTable.noTransactions')}
                   </td>
                 </tr>
@@ -654,6 +670,16 @@ export default function StatsTable({
                       </td>
                       <td className="py-4 px-6 text-zinc-600 font-normal max-w-xs truncate" title={tx.note ? tx.note.replace('Purchased:', `${t('common.credited')}:`).replace('Crediée:', `${t('common.credited')}:`) : ''}>
                         {tx.note ? tx.note.replace('Purchased:', `${t('common.credited')}:`).replace('Crediée:', `${t('common.credited')}:`) : '—'}
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <button
+                          onClick={() => handleUndo(tx.id)}
+                          disabled={undoingId === tx.id}
+                          className="text-zinc-400 hover:text-rose-500 transition disabled:opacity-50"
+                          title={t('common.undo') || 'Undo'}
+                        >
+                          {undoingId === tx.id ? '⏳' : '↩️'}
+                        </button>
                       </td>
                     </tr>
                   );
