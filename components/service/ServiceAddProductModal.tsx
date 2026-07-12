@@ -33,8 +33,8 @@ export default function ServiceAddProductModal({ isOpen, onClose }: ServiceAddPr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="w-full max-w-4xl bg-[#fff5fb] rounded-3xl relative my-8 shadow-[0_20px_100px_rgba(236,72,153,0.25)] flex flex-col animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center">
+      <div className="w-full max-w-4xl bg-[#fff5fb] rounded-3xl relative my-auto shadow-[0_20px_100px_rgba(236,72,153,0.25)] flex flex-col animate-in fade-in zoom-in-95 duration-200">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-10 p-2.5 bg-white/80 hover:bg-white rounded-full shadow-sm text-zinc-500 hover:text-zinc-900 transition focus:outline-none"

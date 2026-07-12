@@ -434,8 +434,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
 
       {isInputModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 md:p-8 border border-emerald-100 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 md:p-8 border border-emerald-100 shadow-2xl max-w-2xl w-full max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto">
             <button onClick={() => setIsInputModalOpen(false)} className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-bold">&times;</button>
 
             <h2 className="text-xl font-bold text-zinc-900 mb-6">{t('market.input.title')}</h2>
@@ -811,8 +811,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       )}
 
       {isRecipesModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 md:p-8 border border-zinc-200 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 md:p-8 border border-zinc-200 shadow-2xl max-w-4xl w-full max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto">
             <button onClick={() => setIsRecipesModalOpen(false)} className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-bold z-10">&times;</button>
             <RecipesTab
               items={items}
@@ -848,8 +848,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       )}
 
       {isCategoriesModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 md:p-8 border border-zinc-200 shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 md:p-8 border border-zinc-200 shadow-2xl max-w-5xl w-full max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto">
             <button onClick={() => setIsCategoriesModalOpen(false)} className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-bold z-10">&times;</button>
             <div className="mt-4">
               <CategoryManagementTab
@@ -871,8 +871,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
       {/* Edit Item Modal */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-xl max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto">
             <div className="p-6 md:p-8 space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold text-zinc-900">{t('common.edit') || 'Edit Product'}</h3>
@@ -1088,8 +1088,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
       {/* Edit Market Input Modal */}
       {editingInput && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-3xl border border-emerald-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center">
+          <div className="w-full max-w-sm rounded-3xl border border-emerald-200 bg-white shadow-2xl max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in fade-in zoom-in-95 duration-150 my-auto">
             <div className="flex items-center justify-between border-b border-emerald-100 p-5 bg-white">
               <div>
                 <h2 className="text-lg font-bold text-zinc-950">{t('market.input.editPurchase') || 'Edit Purchase'}</h2>
