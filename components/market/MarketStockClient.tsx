@@ -94,8 +94,14 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const [editItemCloudinaryUrl, setEditItemCloudinaryUrl] = useState<string | null>(null);
   const [editItemUploading, setEditItemUploading] = useState(false);
   const [editShowUploadOptions, setEditShowUploadOptions] = useState(false);
+  const [editItemCategoryId, setEditItemCategoryId] = useState('');
+  const [editItemSubcategoryId, setEditItemSubcategoryId] = useState('');
 
   const [showAllProducts, setShowAllProducts] = useState(false);
+
+  // Product filtering states
+  const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
+  const [filterSubcategoryId, setFilterSubcategoryId] = useState<string | null>(null);
 
   // Local State
   const [localCategories, setLocalCategories] = useState(categories);
@@ -210,9 +216,57 @@ export default function MarketStockClient({ items, categories, subcategories, ma
     return marketInputs.filter(m => m.shopping_date.startsWith(monthFilter));
   }, [marketInputs, monthFilter]);
 
-  // Derived item groups
   const rawMaterials = items.filter(i => i.item_type === 'raw_material');
   const finishedProducts = items.filter(i => i.item_type === 'finished' || !i.item_type).filter(i => i.is_active !== false);
+
+  const filteredProductsForDisplay = useMemo(() => {
+    return finishedProducts.filter(item => {
+      // Stock check (original logic was item.stock_quantity > 0)
+      const hasStock = item.stock_quantity > 0;
+      if (!hasStock) return false;
+
+      // Category filter
+      if (filterCategoryId) {
+        const sub = localSubcats.find(s => s.id === item.subcategory_id);
+        if (!sub || sub.category_id !== filterCategoryId) return false;
+      }
+
+      // Subcategory filter
+      if (filterSubcategoryId) {
+        if (item.subcategory_id !== filterSubcategoryId) return false;
+      }
+
+      return true;
+    });
+  }, [finishedProducts, filterCategoryId, filterSubcategoryId, localSubcats]);
+
+  const sortedCategoriesForFilter = useMemo(() => {
+    return [...localCategories].sort((a, b) => {
+      const aHasProducts = finishedProducts.some(p => {
+        const sub = localSubcats.find(s => s.id === p.subcategory_id);
+        return sub && sub.category_id === a.id;
+      });
+      const bHasProducts = finishedProducts.some(p => {
+        const sub = localSubcats.find(s => s.id === p.subcategory_id);
+        return sub && sub.category_id === b.id;
+      });
+
+      if (aHasProducts && !bHasProducts) return -1;
+      if (!aHasProducts && bHasProducts) return 1;
+      return a.position - b.position;
+    });
+  }, [localCategories, finishedProducts, localSubcats]);
+
+  const sortedSubcategoriesForFilter = useMemo(() => {
+    return [...localSubcats].sort((a, b) => {
+      const aHasProducts = finishedProducts.some(p => p.subcategory_id === a.id);
+      const bHasProducts = finishedProducts.some(p => p.subcategory_id === b.id);
+
+      if (aHasProducts && !bHasProducts) return -1;
+      if (!aHasProducts && bHasProducts) return 1;
+      return a.position - b.position;
+    });
+  }, [localSubcats, finishedProducts]);
 
   const handleEditClick = (item: Item) => {
     setEditingItem(item);
@@ -226,6 +280,10 @@ export default function MarketStockClient({ items, categories, subcategories, ma
     const isLegacyEmoji = item.image_url && !item.image_url.startsWith('http') && !item.image_url.startsWith('/');
     const currentIcon = item.icon || (isLegacyEmoji ? item.image_url : null);
     const currentImgUrl = item.image_url && !isLegacyEmoji ? item.image_url : null;
+
+    const currentSub = localSubcats.find(s => s.id === item.subcategory_id);
+    setEditItemCategoryId(currentSub ? currentSub.category_id : '');
+    setEditItemSubcategoryId(item.subcategory_id || '');
 
     setEditItemIcon(currentIcon || '🛍️');
     setEditItemImageUrl(currentImgUrl);
@@ -249,7 +307,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         cost_price: Number(editCostPrice),
         sell_price: Number(editSellPrice),
         stock_quantity: Number(editStockQty),
-        min_stock_alert: editMinStockAlert ? Number(editMinStockAlert) : null
+        min_stock_alert: editMinStockAlert ? Number(editMinStockAlert) : null,
+        subcategory_id: editItemSubcategoryId || null
       };
 
       if (editShowUploadOptions) {
@@ -352,12 +411,105 @@ export default function MarketStockClient({ items, categories, subcategories, ma
             </button>
           )}
         </div>
-        {finishedProducts.filter(item => item.stock_quantity > 0).length === 0 ? (
-          <p className="text-sm text-zinc-500">{t('common.noData') || 'No products available.'}</p>
+
+        {/* Category & Subcategory Filter Tabs */}
+        <div className="space-y-3 bg-zinc-50/50 p-4 rounded-3xl border border-zinc-200/50 mb-4">
+          {/* Category Tabs */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => {
+                setFilterCategoryId(null);
+                setFilterSubcategoryId(null);
+              }}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition whitespace-nowrap border ${
+                filterCategoryId === null
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-500/25'
+                  : 'bg-white border-zinc-200 text-zinc-650 hover:bg-zinc-50'
+              }`}
+            >
+              📂 {t('market.input.allCategories') || 'All Categories'}
+            </button>
+            
+            {sortedCategoriesForFilter.map((cat) => {
+              const isSelected = filterCategoryId === cat.id;
+              // Check if category has any products in stock
+              const hasProducts = finishedProducts.some(p => {
+                const sub = localSubcats.find(s => s.id === p.subcategory_id);
+                return sub && sub.category_id === cat.id;
+              });
+
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setFilterCategoryId(cat.id);
+                    setFilterSubcategoryId(null); // Reset subcategory when changing category
+                  }}
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 border ${
+                    isSelected
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-500/25'
+                      : 'bg-white border-zinc-200 text-zinc-650 hover:bg-zinc-50'
+                  } ${!hasProducts && !isSelected ? 'opacity-60 border-dashed saturate-50' : ''}`}
+                >
+                  <span className="text-sm select-none">{cat.icon || '📁'}</span>
+                  <span>{cat.name.replace('_', ' ')}</span>
+                  {!hasProducts && <span className="text-[9px] text-zinc-400 font-normal ml-0.5">(0)</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Subcategory Tabs (Render only if a category is selected) */}
+          {filterCategoryId && (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none border-t border-dashed border-zinc-200 pt-2.5 animate-in slide-in-from-top-2 duration-200">
+              <button
+                type="button"
+                onClick={() => setFilterSubcategoryId(null)}
+                className={`px-3 py-1.5 rounded-full text-xxs font-bold transition whitespace-nowrap border ${
+                  filterSubcategoryId === null
+                    ? 'bg-zinc-800 text-white border-zinc-800 shadow-sm'
+                    : 'bg-white border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                }`}
+              >
+                📄 {t('market.input.allSubcategories') || 'All Subcategories'}
+              </button>
+
+              {sortedSubcategoriesForFilter
+                .filter((sub) => sub.category_id === filterCategoryId)
+                .map((sub) => {
+                  const isSelected = filterSubcategoryId === sub.id;
+                  // Check if subcategory has any products in stock
+                  const hasProducts = finishedProducts.some(p => p.subcategory_id === sub.id);
+
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setFilterSubcategoryId(sub.id)}
+                      className={`px-3 py-1.5 rounded-full text-xxs font-bold transition whitespace-nowrap flex items-center gap-1 border ${
+                        isSelected
+                          ? 'bg-zinc-800 text-white border-zinc-800 shadow-sm'
+                          : 'bg-white border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                      } ${!hasProducts && !isSelected ? 'opacity-60 border-dashed saturate-50' : ''}`}
+                    >
+                      <span>{sub.icon || '📁'}</span>
+                      <span>{sub.name}</span>
+                      {!hasProducts && <span className="text-[8px] text-zinc-400 font-normal ml-0.5">(0)</span>}
+                    </button>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+
+        {filteredProductsForDisplay.length === 0 ? (
+          <p className="text-sm text-zinc-500 py-6 text-center">{t('common.noData') || 'No products available matching the filters.'}</p>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {finishedProducts.filter(item => item.stock_quantity > 0).slice(0, showAllProducts ? undefined : 5).map((item) => (
+              {filteredProductsForDisplay.slice(0, showAllProducts ? undefined : 5).map((item) => (
                 <ItemCard
                   key={item.id}
                   item={item}
@@ -367,9 +519,10 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                 />
               ))}
             </div>
-            {finishedProducts.filter(item => item.stock_quantity > 0).length > 5 && !showAllProducts && (
+            {filteredProductsForDisplay.length > 5 && !showAllProducts && (
               <div className="flex justify-center mt-2">
                 <button
+                  type="button"
                   onClick={() => setShowAllProducts(true)}
                   className="px-6 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-sm font-semibold rounded-full transition flex items-center gap-2"
                 >
@@ -381,6 +534,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
             {showAllProducts && (
               <div className="flex justify-center mt-2">
                 <button
+                  type="button"
                   onClick={() => setShowAllProducts(false)}
                   className="px-6 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-sm font-semibold rounded-full transition flex items-center gap-2"
                 >
@@ -434,8 +588,14 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
 
       {isInputModalOpen && (
-        <div className="fixed inset-0 z-40 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 md:p-8 border border-emerald-100 shadow-2xl max-w-2xl w-full max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto">
+        <div 
+          onClick={() => setIsInputModalOpen(false)}
+          className="fixed inset-0 z-40 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 md:p-8 border border-emerald-100 shadow-2xl max-w-2xl w-full max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto"
+          >
             <button onClick={() => setIsInputModalOpen(false)} className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-bold">&times;</button>
 
             <h2 className="text-xl font-bold text-zinc-900 mb-6">{t('market.input.title')}</h2>
@@ -811,8 +971,14 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       )}
 
       {isRecipesModalOpen && (
-        <div className="fixed inset-0 z-40 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 md:p-8 border border-zinc-200 shadow-2xl max-w-4xl w-full max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto">
+        <div 
+          onClick={() => setIsRecipesModalOpen(false)}
+          className="fixed inset-0 z-40 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 md:p-8 border border-zinc-200 shadow-2xl max-w-4xl w-full max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto"
+          >
             <button onClick={() => setIsRecipesModalOpen(false)} className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-bold z-10">&times;</button>
             <RecipesTab
               items={items}
@@ -848,8 +1014,14 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       )}
 
       {isCategoriesModalOpen && (
-        <div className="fixed inset-0 z-40 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 md:p-8 border border-zinc-200 shadow-2xl max-w-5xl w-full max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto">
+        <div 
+          onClick={() => setIsCategoriesModalOpen(false)}
+          className="fixed inset-0 z-40 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 md:p-8 border border-zinc-200 shadow-2xl max-w-5xl w-full max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto"
+          >
             <button onClick={() => setIsCategoriesModalOpen(false)} className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-bold z-10">&times;</button>
             <div className="mt-4">
               <CategoryManagementTab
@@ -871,8 +1043,14 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
       {/* Edit Item Modal */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-xl max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto">
+        <div 
+          onClick={() => setEditingItem(null)}
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl w-full max-w-md shadow-xl max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto"
+          >
             <div className="p-6 md:p-8 space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold text-zinc-900">{t('common.edit') || 'Edit Product'}</h3>
@@ -897,6 +1075,51 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                   <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">{t('market.input.quantity') || 'Quantity in Stock'}</label>
                   <input type="number" value={editStockQty} onChange={e => setEditStockQty(e.target.value)} required className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none" />
                 </div>
+
+                {/* Category & Subcategory Select */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                      {t('market.input.category') || 'Category'}
+                    </label>
+                    <select
+                      value={editItemCategoryId}
+                      onChange={(e) => {
+                        setEditItemCategoryId(e.target.value);
+                        setEditItemSubcategoryId(''); // Reset subcategory when category changes
+                      }}
+                      className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="">{t('market.input.choose') || '-- Choose --'}</option>
+                      {localCategories.map(cat => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.icon || '📁'} {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                      {t('market.input.subcategory') || 'Subcategory'}
+                    </label>
+                    <select
+                      value={editItemSubcategoryId}
+                      onChange={(e) => setEditItemSubcategoryId(e.target.value)}
+                      className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
+                      disabled={!editItemCategoryId}
+                    >
+                      <option value="">{t('market.input.choose') || '-- Choose --'}</option>
+                      {localSubcats
+                        .filter(s => s.category_id === editItemCategoryId)
+                        .map(sub => (
+                          <option key={sub.id} value={sub.id}>
+                            {sub.icon || '📁'} {sub.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">{t('market.input.minStockAlert') || 'Alerte Stock Minimum (Min Stock Alert)'}</label>
                   <input type="number" value={editMinStockAlert} onChange={e => setEditMinStockAlert(e.target.value)} placeholder={t('market.input.optionalAlert') || 'e.g. 5 (Optionnel)'} className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none" />
@@ -1088,8 +1311,14 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
       {/* Edit Market Input Modal */}
       {editingInput && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center">
-          <div className="w-full max-w-sm rounded-3xl border border-emerald-200 bg-white shadow-2xl max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in fade-in zoom-in-95 duration-150 my-auto">
+        <div 
+          onClick={() => setEditingInput(null)}
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-3xl border border-emerald-200 bg-white shadow-2xl max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in fade-in zoom-in-95 duration-150 my-auto"
+          >
             <div className="flex items-center justify-between border-b border-emerald-100 p-5 bg-white">
               <div>
                 <h2 className="text-lg font-bold text-zinc-950">{t('market.input.editPurchase') || 'Edit Purchase'}</h2>

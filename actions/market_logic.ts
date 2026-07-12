@@ -193,6 +193,7 @@ export async function updateItem(
     min_stock_alert?: number | null;
     image_url?: string | null;
     icon?: string | null;
+    subcategory_id?: string | null;
   }
 ) {
   try {
@@ -213,6 +214,9 @@ export async function updateItem(
     }
     if (data.icon !== undefined) {
       updateData.icon = data.icon;
+    }
+    if (data.subcategory_id !== undefined) {
+      updateData.subcategory_id = data.subcategory_id;
     }
 
     const { error } = await supabase
