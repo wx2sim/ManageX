@@ -134,3 +134,66 @@ export async function produceRecipe(recipeId: string, batches: number) {
     return { error: err.message || 'Something went wrong' };
   }
 }
+
+export async function updateItemSubcategory(itemId: string, subcategoryId: string | null) {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('items')
+      .update({ subcategory_id: subcategoryId })
+      .eq('id', itemId);
+    if (error) return { error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || 'Something went wrong' };
+  }
+}
+
+export async function editRecipe(
+  recipeId: string,
+  batchQuantity: number,
+  ingredients: { raw_material_id: string; quantity_needed: number }[]
+) {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    if (batchQuantity <= 0) return { error: 'Yield quantity must be greater than zero' };
+
+    // 1. Update recipe batch quantity
+    const { error: recipeError } = await supabase
+      .from('recipes')
+      .update({ batch_quantity: batchQuantity })
+      .eq('id', recipeId);
+
+    if (recipeError) return { error: recipeError.message };
+
+    // 2. Delete existing ingredients
+    const { error: deleteError } = await supabase
+      .from('recipe_ingredients')
+      .delete()
+      .eq('recipe_id', recipeId);
+
+    if (deleteError) return { error: deleteError.message };
+
+    // 3. Insert new ingredients
+    const ingredientsToInsert = ingredients.map(ing => ({
+      recipe_id: recipeId,
+      raw_material_id: ing.raw_material_id,
+      quantity_needed: ing.quantity_needed
+    }));
+
+    const { error: insertError } = await supabase
+      .from('recipe_ingredients')
+      .insert(ingredientsToInsert);
+
+    if (insertError) return { error: insertError.message };
+
+    revalidatePath('/stock');
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || 'Something went wrong' };
+  }
+}

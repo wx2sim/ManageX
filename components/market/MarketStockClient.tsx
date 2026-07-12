@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Item, ServiceCategory, ServiceSubcategory, MarketInput, Recipe, RecipeIngredient } from '@/lib/types';
 import { addMarketInput, updateItem, deleteItem, deleteMarketInput, updateMarketInput } from '@/actions/market_logic';
-import { addRecipe, produceRecipe, deleteRecipe } from '@/actions/recipes';
+import { addRecipe, produceRecipe, deleteRecipe, updateItemSubcategory, editRecipe } from '@/actions/recipes';
 import { formatDZD, formatDate } from '@/lib/utils/formatters';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import ItemCard from '@/components/service/ItemCard';
@@ -1420,6 +1420,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
 function RecipesTab({ items, categories, subcategories, recipes, recipeIngredients, t, tError, isModal, onSuccessModal }: any) {
   const [isCreating, setIsCreating] = useState(false);
+  const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+  const [editingIngredients, setEditingIngredients] = useState<RecipeIngredient[]>([]);
   const [produceRecipeId, setProduceRecipeId] = useState<string | null>(null);
 
   const rawMaterials = items.filter((i: Item) => i.item_type === 'raw_material');
@@ -1429,7 +1431,7 @@ function RecipesTab({ items, categories, subcategories, recipes, recipeIngredien
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-zinc-900">{t('market.recipes.title') || 'Recipes & Bill of Materials'}</h2>
-        {!isCreating && (
+        {!isCreating && !editingRecipe && (
           <button
             onClick={() => setIsCreating(true)}
             className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl text-sm hover:bg-emerald-700"
@@ -1439,13 +1441,19 @@ function RecipesTab({ items, categories, subcategories, recipes, recipeIngredien
         )}
       </div>
 
-      {isCreating ? (
+      {isCreating || editingRecipe ? (
         <RecipeForm
           finishedProducts={finishedProducts}
           allItems={items}
           categories={categories}
           subcategories={subcategories}
-          onCancel={() => setIsCreating(false)}
+          editingRecipe={editingRecipe}
+          editingIngredients={editingIngredients}
+          onCancel={() => {
+            setIsCreating(false);
+            setEditingRecipe(null);
+            setEditingIngredients([]);
+          }}
           t={t}
           tError={tError}
           isModal={isModal}
@@ -1464,6 +1472,10 @@ function RecipesTab({ items, categories, subcategories, recipes, recipeIngredien
                 recipe={r}
                 ingredients={recipeIngredients.filter((ri: RecipeIngredient) => ri.recipe_id === r.id)}
                 onProduce={() => setProduceRecipeId(r.id)}
+                onEdit={() => {
+                  setEditingRecipe(r);
+                  setEditingIngredients(recipeIngredients.filter((ri: RecipeIngredient) => ri.recipe_id === r.id));
+                }}
                 t={t}
                 tError={tError}
               />
@@ -1478,6 +1490,8 @@ function RecipesTab({ items, categories, subcategories, recipes, recipeIngredien
           recipe={recipes.find((r: Recipe) => r.id === produceRecipeId)}
           ingredients={recipeIngredients.filter((ri: RecipeIngredient) => ri.recipe_id === produceRecipeId)}
           rawMaterials={rawMaterials}
+          categories={categories}
+          subcategories={subcategories}
           onClose={() => setProduceRecipeId(null)}
           t={t}
           tError={tError}
@@ -1489,12 +1503,12 @@ function RecipesTab({ items, categories, subcategories, recipes, recipeIngredien
   );
 }
 
-function RecipeForm({ finishedProducts, allItems, categories, subcategories, onCancel, t, tError, isModal, onSuccessModal }: any) {
+function RecipeForm({ finishedProducts, allItems, categories, subcategories, onCancel, t, tError, isModal, onSuccessModal, editingRecipe, editingIngredients }: any) {
   const [isPending, startTransition] = useOverlayTransition();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const [finishedProductId, setFinishedProductId] = useState('');
+  const [finishedProductId, setFinishedProductId] = useState(editingRecipe ? editingRecipe.finished_product_id : '');
 
   // Fields for new product
   const [newProductName, setNewProductName] = useState('');
@@ -1502,10 +1516,12 @@ function RecipeForm({ finishedProducts, allItems, categories, subcategories, onC
   const [newProductSubcategoryId, setNewProductSubcategoryId] = useState('');
   const [newProductSellPrice, setNewProductSellPrice] = useState('');
 
-  const [batchQuantity, setBatchQuantity] = useState('1');
-  const [ingredients, setIngredients] = useState<{ raw_material_id: string; quantity_needed: string }[]>([
-    { raw_material_id: '', quantity_needed: '' }
-  ]);
+  const [batchQuantity, setBatchQuantity] = useState(editingRecipe ? editingRecipe.batch_quantity.toString() : '1');
+  const [ingredients, setIngredients] = useState<{ raw_material_id: string; quantity_needed: string }[]>(
+    editingRecipe && editingIngredients?.length > 0
+      ? editingIngredients.map((i: any) => ({ raw_material_id: i.raw_material_id, quantity_needed: i.quantity_needed.toString() }))
+      : [{ raw_material_id: '', quantity_needed: '' }]
+  );
 
   const groupedItems = useMemo(() => {
     const rawMap: Record<string, any[]> = {};
@@ -1547,14 +1563,18 @@ function RecipeForm({ finishedProducts, allItems, categories, subcategories, onC
         quantity_needed: Number(i.quantity_needed)
       }));
 
-      const newProductData = finishedProductId === 'new' ? {
-        name: newProductName,
-        category_id: newProductCategoryId,
-        subcategory_id: newProductSubcategoryId,
-        sell_price: Number(newProductSellPrice)
-      } : undefined;
-
-      const res = await addRecipe(finishedProductId, Number(batchQuantity), payload, newProductData);
+      let res;
+      if (editingRecipe) {
+        res = await editRecipe(editingRecipe.id, Number(batchQuantity), payload);
+      } else {
+        const newProductData = finishedProductId === 'new' ? {
+          name: newProductName,
+          category_id: newProductCategoryId,
+          subcategory_id: newProductSubcategoryId,
+          sell_price: Number(newProductSellPrice)
+        } : undefined;
+        res = await addRecipe(finishedProductId, Number(batchQuantity), payload, newProductData);
+      }
       if (res?.error) setError(tError(res.error));
       else {
         onCancel();
@@ -1585,10 +1605,13 @@ function RecipeForm({ finishedProducts, allItems, categories, subcategories, onC
             value={finishedProductId}
             onChange={e => setFinishedProductId(e.target.value)}
             required
-            className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none"
+            disabled={!!editingRecipe}
+            className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none disabled:opacity-75"
           >
             <option value="">{t('market.input.choose')}</option>
-            <option value="new" className="font-bold text-emerald-600">+ {t('service.createNewProduct') || 'Create New Product'}</option>
+            {!editingRecipe && (
+              <option value="new" className="font-bold text-emerald-600">+ {t('service.createNewProduct') || 'Create New Product'}</option>
+            )}
             {finishedProducts.map((p: Item) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
@@ -1792,7 +1815,7 @@ function RecipeForm({ finishedProducts, allItems, categories, subcategories, onC
   );
 }
 
-function RecipeCard({ recipe, ingredients, onProduce, t, tError }: any) {
+function RecipeCard({ recipe, ingredients, onProduce, onEdit, t, tError }: any) {
   const [isPending, startTransition] = useOverlayTransition();
   const router = useRouter();
 
@@ -1806,7 +1829,10 @@ function RecipeCard({ recipe, ingredients, onProduce, t, tError }: any) {
 
   return (
     <div className="bg-white border border-zinc-200 rounded-3xl p-5 shadow-sm relative group overflow-hidden">
-      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition">
+      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition flex items-center gap-2">
+        <button onClick={onEdit} className="text-zinc-650 hover:text-zinc-900 text-xs font-bold bg-zinc-105 px-2.5 py-1 rounded-lg transition border border-zinc-200 bg-zinc-50">
+          {t('common.edit') || 'Edit'}
+        </button>
         <button onClick={handleDelete} disabled={isPending} className="text-rose-400 hover:text-rose-600 text-xs font-bold bg-rose-50 px-2 py-1 rounded-lg">
           {t('market.categories.delete')}
         </button>
@@ -1836,16 +1862,42 @@ function RecipeCard({ recipe, ingredients, onProduce, t, tError }: any) {
   );
 }
 
-function ProduceModal({ recipeId, recipe, ingredients, rawMaterials, onClose, t, tError, isModal, onSuccessModal }: any) {
+function ProduceModal({ recipeId, recipe, ingredients, rawMaterials, categories, subcategories, onClose, t, tError, isModal, onSuccessModal }: any) {
   const [batches, setBatches] = useState('1');
   const [isPending, startTransition] = useOverlayTransition();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState('');
+
+  useEffect(() => {
+    if (recipe?.finished_product) {
+      const subId = recipe.finished_product.subcategory_id;
+      const sub = subcategories.find((s: any) => s.id === subId);
+      setSelectedCategoryId(sub ? sub.category_id : '');
+      setSelectedSubcategoryId(subId || '');
+    }
+  }, [recipe, subcategories]);
+
   const handleProduce = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
+      // 1. Update subcategory destination if changed
+      if (recipe?.finished_product) {
+        const currentSubId = recipe.finished_product.subcategory_id || '';
+        const targetSubId = selectedSubcategoryId || null;
+        if (currentSubId !== (targetSubId || '')) {
+          const updateRes = await updateItemSubcategory(recipe.finished_product.id, targetSubId);
+          if (updateRes?.error) {
+            setError(tError(updateRes.error));
+            return;
+          }
+        }
+      }
+
+      // 2. Call produce recipe
       const res = await produceRecipe(recipeId, Number(batches));
       if (res?.error) setError(tError(res.error));
       else {
@@ -1862,8 +1914,14 @@ function ProduceModal({ recipeId, recipe, ingredients, rawMaterials, onClose, t,
   const batchesNum = Number(batches) || 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
+    <div 
+      onClick={onClose}
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200"
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl relative my-auto"
+      >
         <h2 className="text-xl font-bold text-zinc-900 mb-2">{t('market.recipes.produceTitle') || 'Produce Item'}</h2>
         <p className="text-sm text-zinc-500 mb-6">
           {recipe.finished_product?.name} • {(recipe.batch_quantity * batchesNum)} {t('market.recipes.unitsTotal') || 'units will be produced'}
@@ -1882,6 +1940,50 @@ function ProduceModal({ recipeId, recipe, ingredients, rawMaterials, onClose, t,
               required
               className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm focus:border-amber-500 focus:outline-none"
             />
+          </div>
+
+          {/* Destination Category & Subcategory */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                {t('market.input.category') || 'Destination Category'}
+              </label>
+              <select
+                value={selectedCategoryId}
+                onChange={(e) => {
+                  setSelectedCategoryId(e.target.value);
+                  setSelectedSubcategoryId(''); // Reset subcategory when category changes
+                }}
+                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-amber-500"
+              >
+                <option value="">{t('market.input.choose') || '-- Choose --'}</option>
+                {categories.map((cat: any) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.icon || '📁'} {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                {t('market.input.subcategory') || 'Destination Subcategory'}
+              </label>
+              <select
+                value={selectedSubcategoryId}
+                onChange={(e) => setSelectedSubcategoryId(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-amber-500"
+                disabled={!selectedCategoryId}
+              >
+                <option value="">{t('market.input.choose') || '-- Choose --'}</option>
+                {subcategories
+                  .filter((s: any) => s.category_id === selectedCategoryId)
+                  .map((sub: any) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.icon || '📁'} {sub.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
           </div>
 
           <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
