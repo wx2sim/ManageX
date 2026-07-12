@@ -87,6 +87,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const [newItemOption, setNewItemOption] = useState<'icon' | 'gallery' | 'camera'>('icon');
   const [newItemCloudinaryUrl, setNewItemCloudinaryUrl] = useState<string | null>(null);
   const [newItemUploading, setNewItemUploading] = useState(false);
+  const [newItemFile, setNewItemFile] = useState<File | null>(null);
 
   const [editItemIcon, setEditItemIcon] = useState<string | null>(null);
   const [editItemImageUrl, setEditItemImageUrl] = useState<string | null>(null);
@@ -96,12 +97,30 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const [editShowUploadOptions, setEditShowUploadOptions] = useState(false);
   const [editItemCategoryId, setEditItemCategoryId] = useState('');
   const [editItemSubcategoryId, setEditItemSubcategoryId] = useState('');
+  const [editItemFile, setEditItemFile] = useState<File | null>(null);
 
   const [showAllProducts, setShowAllProducts] = useState(false);
 
   // Product filtering states
   const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
   const [filterSubcategoryId, setFilterSubcategoryId] = useState<string | null>(null);
+
+  const closeInputModal = () => {
+    if (newItemCloudinaryUrl && newItemCloudinaryUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(newItemCloudinaryUrl);
+    }
+    setNewItemFile(null);
+    setNewItemCloudinaryUrl(null);
+    setIsInputModalOpen(false);
+  };
+
+  const closeEditModal = () => {
+    if (editItemCloudinaryUrl && editItemCloudinaryUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(editItemCloudinaryUrl);
+    }
+    setEditItemFile(null);
+    setEditingItem(null);
+  };
 
   // Local State
   const [localCategories, setLocalCategories] = useState(categories);
@@ -135,51 +154,54 @@ export default function MarketStockClient({ items, categories, subcategories, ma
     }
   };
 
-  const handleNewItemImageUpload = async (file: File) => {
-    setNewItemUploading(true);
-    setError(null);
-    try {
-      const url = await uploadProductImage(file);
-      setNewItemCloudinaryUrl(url);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Failed to upload image.');
-      alert(err.message || 'Failed to upload image.');
-    } finally {
-      setNewItemUploading(false);
+  const handleNewItemImageSelect = (file: File) => {
+    if (newItemCloudinaryUrl && newItemCloudinaryUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(newItemCloudinaryUrl);
     }
+    setNewItemFile(file);
+    const url = URL.createObjectURL(file);
+    setNewItemCloudinaryUrl(url);
   };
 
-  const handleEditItemImageUpload = async (file: File) => {
-    setEditItemUploading(true);
-    setError(null);
-    try {
-      const url = await uploadProductImage(file);
-      setEditItemCloudinaryUrl(url);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Failed to upload image.');
-      alert(err.message || 'Failed to upload image.');
-    } finally {
-      setEditItemUploading(false);
+  const handleEditItemImageSelect = (file: File) => {
+    if (editItemCloudinaryUrl && editItemCloudinaryUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(editItemCloudinaryUrl);
     }
+    setEditItemFile(file);
+    const url = URL.createObjectURL(file);
+    setEditItemCloudinaryUrl(url);
   };
 
   const handleInputSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isNewItem && newItemOption !== 'icon' && !newItemCloudinaryUrl) {
+    if (isNewItem && newItemOption !== 'icon' && !newItemFile) {
       setError(t('market.input.uploadRequired') || 'Please upload an image first.');
       return;
     }
     setError(null);
     startTransition(async () => {
+      let finalImageUrl = null;
+
+      if (isNewItem && newItemOption !== 'icon' && newItemFile) {
+        setNewItemUploading(true);
+        try {
+          finalImageUrl = await uploadProductImage(newItemFile);
+        } catch (err: any) {
+          console.error(err);
+          setError(tError(err.message || 'Failed to upload image.'));
+          setNewItemUploading(false);
+          return;
+        }
+        setNewItemUploading(false);
+      }
+
       const data = {
         item_id: isNewItem ? undefined : selectedItemId,
         name: isNewItem ? newItemName : undefined,
         item_type: isNewItem ? newItemType : undefined,
         unit: isNewItem ? (newItemType === 'raw_material' ? newItemUnit : 'unit') : undefined,
         subcategory_id: (isNewItem && newItemType === 'finished') ? newItemSubcategoryId : undefined,
-        image_url: (isNewItem && newItemOption !== 'icon') ? newItemCloudinaryUrl : null,
+        image_url: finalImageUrl,
         icon: isNewItem ? newItemImage : undefined,
         min_stock_alert: (isNewItem && newItemMinStockAlert) ? Number(newItemMinStockAlert) : null,
         quantity: Number(quantity),
@@ -192,6 +214,9 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       if (res?.error) {
         setError(tError(res.error));
       } else {
+        if (newItemCloudinaryUrl && newItemCloudinaryUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(newItemCloudinaryUrl);
+        }
         setSelectedItemId('');
         setNewItemName('');
         setNewItemMinStockAlert('');
@@ -201,11 +226,12 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         setIsNewItem(false);
         setNewItemOption('icon');
         setNewItemCloudinaryUrl(null);
+        setNewItemFile(null);
 
         if (isModal && onSuccessModal) {
           onSuccessModal();
         } else {
-          setIsInputModalOpen(false);
+          closeInputModal();
         }
       }
     });
@@ -296,8 +322,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
-    if (editShowUploadOptions && editItemOption !== 'icon' && !editItemCloudinaryUrl && !editItemImageUrl) {
-      setError('Please upload an image first.');
+    if (editShowUploadOptions && editItemOption !== 'icon' && !editItemFile && !editItemImageUrl) {
+      setError(t('market.input.uploadRequired') || 'Please upload an image first.');
       return;
     }
     setError(null);
@@ -316,10 +342,19 @@ export default function MarketStockClient({ items, categories, subcategories, ma
           updatedData.icon = editItemIcon;
           updatedData.image_url = null;
         } else {
-          if (editItemCloudinaryUrl) {
-            updatedData.image_url = editItemCloudinaryUrl;
+          if (editItemFile) {
+            setEditItemUploading(true);
+            try {
+              const url = await uploadProductImage(editItemFile);
+              updatedData.image_url = url;
+            } catch (err: any) {
+              console.error(err);
+              setError(tError(err.message || 'Failed to upload image.'));
+              setEditItemUploading(false);
+              return;
+            }
+            setEditItemUploading(false);
           }
-          // NEVER overwrite or delete existing icon - so we don't set updatedData.icon to null
         }
       }
 
@@ -327,6 +362,10 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       if (res?.error) {
         setError(tError(res.error));
       } else {
+        if (editItemCloudinaryUrl && editItemCloudinaryUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(editItemCloudinaryUrl);
+        }
+        setEditItemFile(null);
         setEditingItem(null);
       }
     });
@@ -589,14 +628,14 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
       {isInputModalOpen && (
         <div 
-          onClick={() => setIsInputModalOpen(false)}
+          onClick={closeInputModal}
           className="fixed inset-0 z-40 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200"
         >
           <div 
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-3xl p-6 md:p-8 border border-emerald-100 shadow-2xl max-w-2xl w-full max-h-full md:max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 my-auto"
           >
-            <button onClick={() => setIsInputModalOpen(false)} className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-bold">&times;</button>
+            <button onClick={closeInputModal} className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-bold">&times;</button>
 
             <h2 className="text-xl font-bold text-zinc-900 mb-6">{t('market.input.title')}</h2>
 
@@ -803,18 +842,15 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                             accept="image/*"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
-                              if (file) handleNewItemImageUpload(file);
+                              if (file) handleNewItemImageSelect(file);
                             }}
                             className="w-full text-sm text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
                           />
-                          {newItemUploading && (
-                            <p className="text-xs text-emerald-700 font-semibold animate-pulse">Uploading image...</p>
-                          )}
                           {newItemCloudinaryUrl && (
                             <div className="mt-2 p-2 bg-white border border-zinc-200 rounded-xl inline-block">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={newItemCloudinaryUrl} alt="Uploaded preview" className="h-20 w-20 object-cover rounded-lg" />
-                              <p className="text-xxs text-zinc-400 mt-1 text-center">Image Uploaded</p>
+                              <p className="text-xxs text-zinc-400 mt-1 text-center font-bold text-emerald-600">Selected Preview</p>
                             </div>
                           )}
                         </div>
@@ -834,20 +870,17 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                                 capture="environment"
                                 onChange={(e) => {
                                   const file = e.target.files?.[0];
-                                  if (file) handleNewItemImageUpload(file);
+                                  if (file) handleNewItemImageSelect(file);
                                 }}
                                 className="hidden"
                               />
                             </label>
                           </div>
-                          {newItemUploading && (
-                            <p className="text-xs text-emerald-700 font-semibold animate-pulse">Uploading photo...</p>
-                          )}
                           {newItemCloudinaryUrl && (
                             <div className="mt-2 p-2 bg-white border border-zinc-200 rounded-xl inline-block">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={newItemCloudinaryUrl} alt="Captured preview" className="h-20 w-20 object-cover rounded-lg" />
-                              <p className="text-xxs text-zinc-400 mt-1 text-center">Image Captured</p>
+                              <p className="text-xxs text-zinc-400 mt-1 text-center font-bold text-emerald-600">Selected Preview</p>
                             </div>
                           )}
                         </div>
@@ -1044,7 +1077,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       {/* Edit Item Modal */}
       {editingItem && (
         <div 
-          onClick={() => setEditingItem(null)}
+          onClick={closeEditModal}
           className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex justify-center items-start md:items-center animate-in fade-in duration-200"
         >
           <div 
@@ -1054,7 +1087,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
             <div className="p-6 md:p-8 space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold text-zinc-900">{t('common.edit') || 'Edit Product'}</h3>
-                <button onClick={() => setEditingItem(null)} className="text-zinc-400 hover:text-zinc-600 text-2xl font-bold transition">&times;</button>
+                <button onClick={closeEditModal} className="text-zinc-400 hover:text-zinc-600 text-2xl font-bold transition">&times;</button>
               </div>
               <form onSubmit={handleSaveEdit} className="space-y-4">
                 <div>
@@ -1231,18 +1264,15 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                             accept="image/*"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
-                              if (file) handleEditItemImageUpload(file);
+                              if (file) handleEditItemImageSelect(file);
                             }}
                             className="w-full text-sm text-zinc-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200 cursor-pointer"
                           />
-                          {editItemUploading && (
-                            <p className="text-xs text-zinc-650 font-semibold animate-pulse">Uploading image...</p>
-                          )}
                           {editItemCloudinaryUrl ? (
                             <div className="mt-2 p-2 bg-white border border-zinc-200 rounded-xl inline-block">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={editItemCloudinaryUrl} alt="Uploaded preview" className="h-20 w-20 object-cover rounded-lg" />
-                              <p className="text-xxs text-zinc-400 mt-1 text-center font-bold text-emerald-600">New Image Ready</p>
+                              <p className="text-xxs text-zinc-400 mt-1 text-center font-bold text-emerald-600">Selected Preview</p>
                             </div>
                           ) : editItemImageUrl ? (
                             <div className="mt-2 p-2 bg-white border border-zinc-200 rounded-xl inline-block">
@@ -1268,20 +1298,17 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                                 capture="environment"
                                 onChange={(e) => {
                                   const file = e.target.files?.[0];
-                                  if (file) handleEditItemImageUpload(file);
+                                  if (file) handleEditItemImageSelect(file);
                                 }}
                                 className="hidden"
                               />
                             </label>
                           </div>
-                          {editItemUploading && (
-                            <p className="text-xs text-zinc-650 font-semibold animate-pulse">Uploading photo...</p>
-                          )}
                           {editItemCloudinaryUrl ? (
                             <div className="mt-2 p-2 bg-white border border-zinc-200 rounded-xl inline-block">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={editItemCloudinaryUrl} alt="Captured preview" className="h-20 w-20 object-cover rounded-lg" />
-                              <p className="text-xxs text-zinc-400 mt-1 text-center font-bold text-emerald-600">New Photo Ready</p>
+                              <p className="text-xxs text-zinc-400 mt-1 text-center font-bold text-emerald-600">Selected Preview</p>
                             </div>
                           ) : editItemImageUrl ? (
                             <div className="mt-2 p-2 bg-white border border-zinc-200 rounded-xl inline-block">
@@ -1296,7 +1323,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                   )}
                 </div>
                 <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setEditingItem(null)} className="flex-1 rounded-xl bg-zinc-100 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-200">
+                  <button type="button" onClick={closeEditModal} className="flex-1 rounded-xl bg-zinc-100 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-200">
                     {t('common.cancel') || 'Cancel'}
                   </button>
                   <button type="submit" disabled={isEditing} className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700">
