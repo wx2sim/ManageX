@@ -6,7 +6,8 @@ import { revalidatePath } from 'next/cache';
 interface MarketInputData {
   item_id?: string; // If selecting existing item
   name?: string;    // If creating new item
-  image_url?: string;
+  image_url?: string | null;
+  icon?: string | null;
   category_id?: string;
   subcategory_id?: string;
   min_stock_alert?: number | null;
@@ -52,6 +53,7 @@ export async function addMarketInput(data: MarketInputData) {
           name: data.name,
           subcategory_id: data.subcategory_id || null,
           image_url: data.image_url || null,
+          icon: data.icon || null,
           item_type: data.item_type || 'finished',
           unit: data.unit || 'unit',
           cost_price: data.unit_buy_price,
@@ -181,24 +183,41 @@ export async function getMarketStockData() {
   };
 }
 
-/**
- * UPDATE ITEM: Updates an existing item's core properties directly.
- */
-export async function updateItem(itemId: string, data: { name: string, cost_price: number, sell_price: number, stock_quantity: number, min_stock_alert?: number | null }) {
+export async function updateItem(
+  itemId: string,
+  data: {
+    name: string;
+    cost_price: number;
+    sell_price: number;
+    stock_quantity: number;
+    min_stock_alert?: number | null;
+    image_url?: string | null;
+    icon?: string | null;
+  }
+) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
 
+    const updateData: any = {
+      name: data.name,
+      cost_price: data.cost_price,
+      sell_price: data.sell_price,
+      stock_quantity: data.stock_quantity,
+      min_stock_alert: data.min_stock_alert !== undefined ? data.min_stock_alert : null
+    };
+
+    if (data.image_url !== undefined) {
+      updateData.image_url = data.image_url;
+    }
+    if (data.icon !== undefined) {
+      updateData.icon = data.icon;
+    }
+
     const { error } = await supabase
       .from('items')
-      .update({
-        name: data.name,
-        cost_price: data.cost_price,
-        sell_price: data.sell_price,
-        stock_quantity: data.stock_quantity,
-        min_stock_alert: data.min_stock_alert !== undefined ? data.min_stock_alert : null
-      })
+      .update(updateData)
       .eq('id', itemId)
       ;
 

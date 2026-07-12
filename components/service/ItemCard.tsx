@@ -13,12 +13,237 @@ interface ItemCardProps {
   onDelete?: (item: Item) => void;
   compact?: boolean;
   isAdmin?: boolean;
+  viewType?: 'list' | 'grid' | 'service';
 }
 
-export default function ItemCard({ item, quantity = 0, onQuantityChange, readonly = false, onEdit, onDelete, compact = false, isAdmin = false }: ItemCardProps) {
+export default function ItemCard({
+  item,
+  quantity = 0,
+  onQuantityChange,
+  readonly = false,
+  onEdit,
+  onDelete,
+  compact = false,
+  isAdmin = false,
+  viewType = 'grid'
+}: ItemCardProps) {
   const { t } = useTranslation();
   const isSelected = quantity > 0;
-  const isEmoji = item.image_url && !item.image_url.startsWith('http') && !item.image_url.startsWith('/');
+  
+  // Media priority check:
+  // 1. If image_url exists and starts with http/https or / -> image
+  // 2. If no image_url but icon exists -> icon emoji
+  // 3. If image_url exists but is an emoji (legacy data fallback) -> icon emoji
+  // 4. Neither -> fallback placeholder
+  const hasImageUrl = item.image_url && (item.image_url.startsWith('http') || item.image_url.startsWith('/'));
+  const hasIcon = !!item.icon;
+  const isLegacyEmoji = item.image_url && !item.image_url.startsWith('http') && !item.image_url.startsWith('/');
+
+  let mediaType: 'image' | 'icon' | 'placeholder' = 'placeholder';
+  let mediaValue: string | null = null;
+
+  if (hasImageUrl) {
+    mediaType = 'image';
+    mediaValue = item.image_url;
+  } else if (hasIcon) {
+    mediaType = 'icon';
+    mediaValue = item.icon!;
+  } else if (isLegacyEmoji) {
+    mediaType = 'icon';
+    mediaValue = item.image_url;
+  }
+
+  // --- SERVICE FLOW VIEW LAYOUT (100x100px square card, name below) ---
+  if (viewType === 'service') {
+    const isOutOfStock = item.stock_quantity <= 0;
+    const remainingStock = item.stock_quantity - quantity;
+    const disableAdd = remainingStock <= 0;
+
+    const handleIncrement = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!disableAdd && onQuantityChange && !readonly) {
+        onQuantityChange(item.id, quantity + 1);
+      }
+    };
+
+    const handleDecrement = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (quantity > 0 && onQuantityChange && !readonly) {
+        onQuantityChange(item.id, quantity - 1);
+      }
+    };
+
+    return (
+      <div 
+        onClick={handleIncrement}
+        className={`flex flex-col items-center select-none group cursor-pointer ${isOutOfStock ? 'opacity-50 pointer-events-none' : ''}`}
+      >
+        {/* 100x100px Image Box */}
+        <div className={`w-[100px] h-[100px] rounded-3xl border relative flex items-center justify-center overflow-hidden transition-all duration-300 ${
+          isSelected 
+            ? 'border-pink-500 ring-4 ring-pink-100/80 shadow-md scale-105' 
+            : 'border-pink-100 bg-white hover:border-pink-300 hover:shadow-sm hover:-translate-y-0.5'
+        }`}>
+          {mediaType === 'image' && mediaValue ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={mediaValue}
+              alt={item.name}
+              loading="lazy"
+              className="h-full w-full object-cover transition duration-300 group-hover:scale-110"
+            />
+          ) : mediaType === 'icon' && mediaValue ? (
+            <span className="text-4xl">{mediaValue}</span>
+          ) : (
+            <span className="text-4xl text-zinc-300 bg-zinc-100 w-full h-full flex items-center justify-center">🛍️</span>
+          )}
+
+          {/* Out of Stock overlay */}
+          {isOutOfStock && (
+            <div className="absolute inset-0 bg-black/45 backdrop-blur-xxs flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-wider text-center px-1">
+              {t('service.outOfStock') || 'SOLD OUT'}
+            </div>
+          )}
+
+          {/* Selection and Control Overlay */}
+          {isSelected && !readonly && (
+            <div className="absolute inset-0 bg-pink-600/95 flex flex-col items-center justify-center gap-1.5 animate-in fade-in duration-200">
+              <span className="text-[10px] font-bold text-pink-100 uppercase tracking-widest">Qty</span>
+              <span className="text-lg font-black text-white">{quantity}</span>
+              <div className="flex items-center gap-1 bg-white/20 p-0.5 rounded-lg border border-white/20">
+                <button
+                  type="button"
+                  onClick={handleDecrement}
+                  className="w-5 h-5 flex items-center justify-center rounded bg-white text-pink-600 font-extrabold hover:bg-pink-50 transition text-xs"
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  onClick={handleIncrement}
+                  disabled={disableAdd}
+                  className="w-5 h-5 flex items-center justify-center rounded bg-white text-pink-600 font-extrabold hover:bg-pink-50 transition disabled:opacity-50 text-xs"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Product Name and Price below the box */}
+        <div className="mt-2 text-center w-[110px] space-y-0.5">
+          <p className="text-xs font-bold text-zinc-800 line-clamp-2 leading-tight uppercase group-hover:text-pink-600 transition">
+            {item.name}
+          </p>
+          <p className="text-[11px] font-semibold text-emerald-600">
+            {formatDZD(isAdmin ? item.cost_price : item.sell_price)}
+          </p>
+          <p className="text-[9px] font-medium text-zinc-400">
+            Stock: <span className={remainingStock > 0 ? 'text-zinc-650 font-semibold' : 'text-rose-500 font-bold'}>{remainingStock}</span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // --- LIST VIEW LAYOUT (80x80px rounded image/icon container) ---
+  if (viewType === 'list') {
+    const isOutOfStock = item.stock_quantity <= 0;
+    const remainingStock = item.stock_quantity - quantity;
+    const disableAdd = remainingStock <= 0;
+
+    const handleIncrement = () => {
+      if (!disableAdd && onQuantityChange && !readonly) {
+        onQuantityChange(item.id, quantity + 1);
+      }
+    };
+
+    const handleDecrement = () => {
+      if (quantity > 0 && onQuantityChange && !readonly) {
+        onQuantityChange(item.id, quantity - 1);
+      }
+    };
+
+    return (
+      <div className={`flex items-center gap-4 p-3 bg-white border border-pink-100/70 rounded-2xl transition hover:shadow-sm ${
+        isOutOfStock ? 'opacity-60 grayscale' : ''
+      }`}>
+        {/* 80x80px Image Box */}
+        <div className="w-20 h-20 rounded-2xl bg-pink-50/50 flex items-center justify-center border border-pink-100/20 overflow-hidden shrink-0 relative">
+          {mediaType === 'image' && mediaValue ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={mediaValue}
+              alt={item.name}
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
+          ) : mediaType === 'icon' && mediaValue ? (
+            <span className="text-3xl select-none">{mediaValue}</span>
+          ) : (
+            <span className="text-3xl select-none">🛍️</span>
+          )}
+
+          {isSelected && !readonly && (
+            <div className="absolute right-1 top-1 bg-pink-600 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center shadow-md">
+              {quantity}
+            </div>
+          )}
+        </div>
+
+        {/* Item Details */}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-sm text-zinc-900 line-clamp-1">{item.name}</h3>
+          <p className="font-bold text-xs text-emerald-600 mt-0.5">
+            {formatDZD(isAdmin ? item.cost_price : item.sell_price)}
+          </p>
+          <p className="text-[10px] text-zinc-400 mt-1">
+            Stock: <span className="font-bold">{remainingStock}</span>
+          </p>
+        </div>
+
+        {/* Controls */}
+        {!readonly && (
+          <div className="shrink-0 flex items-center gap-1.5 bg-pink-50/30 p-1 rounded-xl border border-pink-100">
+            {isOutOfStock ? (
+              <span className="text-xxs font-bold text-rose-500 px-2 py-1">Sold Out</span>
+            ) : quantity > 0 ? (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleDecrement}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-pink-100 text-zinc-700 font-bold hover:bg-rose-50 hover:text-rose-600 transition"
+                >
+                  −
+                </button>
+                <span className="w-5 text-center text-xs font-bold text-zinc-900">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={handleIncrement}
+                  disabled={disableAdd}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-pink-100 text-zinc-700 font-bold hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50 transition"
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleIncrement}
+                disabled={disableAdd}
+                className="rounded-lg bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs px-3 py-1.5 transition"
+              >
+                + Add
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // --- GRID VIEW LAYOUT (Default, 120x120px rounded image/icon container) ---
   const isOutOfStock = item.stock_quantity <= 0;
   const remainingStock = item.stock_quantity - quantity;
   const disableAdd = remainingStock <= 0;
@@ -45,21 +270,21 @@ export default function ItemCard({ item, quantity = 0, onQuantityChange, readonl
           ? 'border-zinc-100 opacity-60 grayscale' 
           : 'border-pink-100/70 hover:border-pink-200'
     } ${isCompact ? 'p-3' : 'p-5'}`}>
-      {/* Item Image */}
-      <div className={`${isCompact ? 'h-20' : 'aspect-video'} w-full rounded-2xl bg-pink-50/50 flex items-center justify-center border border-pink-100/20 overflow-hidden shrink-0 relative mb-3`}>
-        {item.image_url ? (
-          isEmoji ? (
-            <span className={`${isCompact ? 'text-4xl' : 'text-6xl'} select-none`}>{item.image_url}</span>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={item.image_url}
-              alt={item.name}
-              className="h-full w-full object-cover"
-            />
-          )
+      
+      {/* 120x120px Image/Icon Box */}
+      <div className="w-[120px] h-[120px] mx-auto rounded-2xl bg-pink-50/50 flex items-center justify-center border border-pink-100/20 overflow-hidden shrink-0 relative mb-3">
+        {mediaType === 'image' && mediaValue ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={mediaValue}
+            alt={item.name}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : mediaType === 'icon' && mediaValue ? (
+          <span className="text-5xl select-none">{mediaValue}</span>
         ) : (
-          <span className="text-4xl select-none">🛍️</span>
+          <span className="text-5xl select-none">🛍️</span>
         )}
 
         {isSelected && !readonly && (

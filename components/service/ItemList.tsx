@@ -124,7 +124,7 @@ export default function ItemList({ girlId, subcategoryId, items, girl }: ItemLis
               <p className="text-zinc-400 text-sm">{t('service.noItemsFound')}</p>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-6 justify-items-center">
               {filteredItems.map((item) => (
                 <ItemCard
                   key={item.id}
@@ -132,6 +132,7 @@ export default function ItemList({ girlId, subcategoryId, items, girl }: ItemLis
                   quantity={cart[item.id] || 0}
                   onQuantityChange={handleQuantityChange}
                   isAdmin={isAdmin}
+                  viewType="service"
                 />
               ))}
             </div>

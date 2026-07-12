@@ -9,6 +9,7 @@ import { addRecipe, produceRecipe, deleteRecipe } from '@/actions/recipes';
 import { formatDZD, formatDate } from '@/lib/utils/formatters';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import ItemCard from '@/components/service/ItemCard';
+import { uploadProductImage } from '@/lib/cloudinary';
 
 interface MarketStockClientProps {
   items: Item[];
@@ -82,6 +83,18 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const [editMinStockAlert, setEditMinStockAlert] = useState('');
   const [isEditing, startEditTransition] = useOverlayTransition();
 
+  // Identification options state
+  const [newItemOption, setNewItemOption] = useState<'icon' | 'gallery' | 'camera'>('icon');
+  const [newItemCloudinaryUrl, setNewItemCloudinaryUrl] = useState<string | null>(null);
+  const [newItemUploading, setNewItemUploading] = useState(false);
+
+  const [editItemIcon, setEditItemIcon] = useState<string | null>(null);
+  const [editItemImageUrl, setEditItemImageUrl] = useState<string | null>(null);
+  const [editItemOption, setEditItemOption] = useState<'icon' | 'gallery' | 'camera'>('icon');
+  const [editItemCloudinaryUrl, setEditItemCloudinaryUrl] = useState<string | null>(null);
+  const [editItemUploading, setEditItemUploading] = useState(false);
+  const [editShowUploadOptions, setEditShowUploadOptions] = useState(false);
+
   const [showAllProducts, setShowAllProducts] = useState(false);
 
   // Local State
@@ -116,8 +129,42 @@ export default function MarketStockClient({ items, categories, subcategories, ma
     }
   };
 
+  const handleNewItemImageUpload = async (file: File) => {
+    setNewItemUploading(true);
+    setError(null);
+    try {
+      const url = await uploadProductImage(file);
+      setNewItemCloudinaryUrl(url);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to upload image.');
+      alert(err.message || 'Failed to upload image.');
+    } finally {
+      setNewItemUploading(false);
+    }
+  };
+
+  const handleEditItemImageUpload = async (file: File) => {
+    setEditItemUploading(true);
+    setError(null);
+    try {
+      const url = await uploadProductImage(file);
+      setEditItemCloudinaryUrl(url);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to upload image.');
+      alert(err.message || 'Failed to upload image.');
+    } finally {
+      setEditItemUploading(false);
+    }
+  };
+
   const handleInputSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isNewItem && newItemOption !== 'icon' && !newItemCloudinaryUrl) {
+      setError(t('market.input.uploadRequired') || 'Please upload an image first.');
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const data = {
@@ -126,7 +173,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         item_type: isNewItem ? newItemType : undefined,
         unit: isNewItem ? (newItemType === 'raw_material' ? newItemUnit : 'unit') : undefined,
         subcategory_id: (isNewItem && newItemType === 'finished') ? newItemSubcategoryId : undefined,
-        image_url: isNewItem ? newItemImage : undefined,
+        image_url: (isNewItem && newItemOption !== 'icon') ? newItemCloudinaryUrl : null,
+        icon: isNewItem ? newItemImage : undefined,
         min_stock_alert: (isNewItem && newItemMinStockAlert) ? Number(newItemMinStockAlert) : null,
         quantity: Number(quantity),
         unit_buy_price: Number(buyPrice),
@@ -145,6 +193,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         setBuyPrice('');
         setSellPrice('');
         setIsNewItem(false);
+        setNewItemOption('icon');
+        setNewItemCloudinaryUrl(null);
 
         if (isModal && onSuccessModal) {
           onSuccessModal();
@@ -171,20 +221,50 @@ export default function MarketStockClient({ items, categories, subcategories, ma
     setEditSellPrice(item.sell_price.toString());
     setEditStockQty(item.stock_quantity.toString());
     setEditMinStockAlert(item.min_stock_alert !== undefined && item.min_stock_alert !== null ? item.min_stock_alert.toString() : '');
+    
+    // Check if image_url is an emoji (legacy data) or actual URL
+    const isLegacyEmoji = item.image_url && !item.image_url.startsWith('http') && !item.image_url.startsWith('/');
+    const currentIcon = item.icon || (isLegacyEmoji ? item.image_url : null);
+    const currentImgUrl = item.image_url && !isLegacyEmoji ? item.image_url : null;
+
+    setEditItemIcon(currentIcon || '🛍️');
+    setEditItemImageUrl(currentImgUrl);
+    setEditItemOption(currentImgUrl ? 'gallery' : 'icon');
+    setEditItemCloudinaryUrl(null);
+    setEditItemUploading(false);
+    setEditShowUploadOptions(false);
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
+    if (editShowUploadOptions && editItemOption !== 'icon' && !editItemCloudinaryUrl && !editItemImageUrl) {
+      setError('Please upload an image first.');
+      return;
+    }
     setError(null);
     startEditTransition(async () => {
-      const res = await updateItem(editingItem.id, {
+      const updatedData: any = {
         name: editItemName,
         cost_price: Number(editCostPrice),
         sell_price: Number(editSellPrice),
         stock_quantity: Number(editStockQty),
         min_stock_alert: editMinStockAlert ? Number(editMinStockAlert) : null
-      });
+      };
+
+      if (editShowUploadOptions) {
+        if (editItemOption === 'icon') {
+          updatedData.icon = editItemIcon;
+          updatedData.image_url = null;
+        } else {
+          if (editItemCloudinaryUrl) {
+            updatedData.image_url = editItemCloudinaryUrl;
+          }
+          // NEVER overwrite or delete existing icon - so we don't set updatedData.icon to null
+        }
+      }
+
+      const res = await updateItem(editingItem.id, updatedData);
       if (res?.error) {
         setError(tError(res.error));
       } else {
@@ -507,20 +587,131 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
                     <div>
                       <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
-                        {t('market.input.selectIcon')}
+                        {t('market.input.productIdentification') || 'Product Identification'}
                       </label>
-                      <div className="grid grid-cols-8 gap-2 bg-white p-3 rounded-xl border border-emerald-200 max-h-32 overflow-y-auto">
-                        {PREDEFINED_ICONS.map(icon => (
-                          <button
-                            key={icon}
-                            type="button"
-                            onClick={() => setNewItemImage(icon)}
-                            className={`text-2xl p-1 rounded-lg transition hover:bg-emerald-50 hover:scale-110 ${newItemImage === icon ? 'bg-emerald-100 ring-2 ring-emerald-500 scale-110' : ''}`}
-                          >
-                            {icon}
-                          </button>
-                        ))}
+                      <div className="flex gap-2 p-1 bg-zinc-50 rounded-xl border border-zinc-200 mb-4">
+                        <button
+                          type="button"
+                          onClick={() => setNewItemOption('icon')}
+                          className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${newItemOption === 'icon' ? 'bg-white shadow-sm text-emerald-700' : 'text-zinc-500 hover:text-zinc-700'}`}
+                        >
+                          Option A: Icon
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItemOption('gallery')}
+                          className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${newItemOption === 'gallery' ? 'bg-white shadow-sm text-emerald-700' : 'text-zinc-500 hover:text-zinc-700'}`}
+                        >
+                          Option B: Gallery
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItemOption('camera')}
+                          className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${newItemOption === 'camera' ? 'bg-white shadow-sm text-emerald-700' : 'text-zinc-500 hover:text-zinc-700'}`}
+                        >
+                          Option C: Camera
+                        </button>
                       </div>
+
+                      {newItemOption === 'icon' && (
+                        <div>
+                          <label className="block text-xxs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+                            {t('market.input.selectIcon') || 'Select Emoji Icon'}
+                          </label>
+                          <div className="grid grid-cols-8 gap-2 bg-white p-3 rounded-xl border border-emerald-200 max-h-32 overflow-y-auto">
+                            {PREDEFINED_ICONS.map(icon => (
+                              <button
+                                key={icon}
+                                type="button"
+                                onClick={() => setNewItemImage(icon)}
+                                className={`text-2xl p-1 rounded-lg transition hover:bg-emerald-50 hover:scale-110 ${newItemImage === icon ? 'bg-emerald-100 ring-2 ring-emerald-500 scale-110' : ''}`}
+                              >
+                                {icon}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {newItemOption === 'gallery' && (
+                        <div className="space-y-3">
+                          <label className="block text-xxs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+                            Upload from Gallery
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleNewItemImageUpload(file);
+                            }}
+                            className="w-full text-sm text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                          />
+                          {newItemUploading && (
+                            <p className="text-xs text-emerald-700 font-semibold animate-pulse">Uploading image...</p>
+                          )}
+                          {newItemCloudinaryUrl && (
+                            <div className="mt-2 p-2 bg-white border border-zinc-200 rounded-xl inline-block">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={newItemCloudinaryUrl} alt="Uploaded preview" className="h-20 w-20 object-cover rounded-lg" />
+                              <p className="text-xxs text-zinc-400 mt-1 text-center">Image Uploaded</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {newItemOption === 'camera' && (
+                        <div className="space-y-3">
+                          <label className="block text-xxs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+                            Take Photo with Camera
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition">
+                              📷 Take Photo
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleNewItemImageUpload(file);
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                          {newItemUploading && (
+                            <p className="text-xs text-emerald-700 font-semibold animate-pulse">Uploading photo...</p>
+                          )}
+                          {newItemCloudinaryUrl && (
+                            <div className="mt-2 p-2 bg-white border border-zinc-200 rounded-xl inline-block">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={newItemCloudinaryUrl} alt="Captured preview" className="h-20 w-20 object-cover rounded-lg" />
+                              <p className="text-xxs text-zinc-400 mt-1 text-center">Image Captured</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {newItemOption !== 'icon' && (
+                        <div className="mt-4 pt-3 border-t border-dashed border-emerald-100">
+                          <label className="block text-xxs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+                            Optional Icon Fallback
+                          </label>
+                          <div className="grid grid-cols-8 gap-2 bg-white p-3 rounded-xl border border-emerald-200 max-h-32 overflow-y-auto">
+                            {PREDEFINED_ICONS.map(icon => (
+                              <button
+                                key={icon}
+                                type="button"
+                                onClick={() => setNewItemImage(icon)}
+                                className={`text-2xl p-1 rounded-lg transition hover:bg-emerald-50 hover:scale-110 ${newItemImage === icon ? 'bg-emerald-100 ring-2 ring-emerald-500 scale-110' : ''}`}
+                              >
+                                {icon}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -709,6 +900,177 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                 <div>
                   <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">{t('market.input.minStockAlert') || 'Alerte Stock Minimum (Min Stock Alert)'}</label>
                   <input type="number" value={editMinStockAlert} onChange={e => setEditMinStockAlert(e.target.value)} placeholder={t('market.input.optionalAlert') || 'e.g. 5 (Optionnel)'} className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none" />
+                </div>
+                
+                {/* Identification Section */}
+                <div className="pt-2 border-t border-zinc-100">
+                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                    Product Media
+                  </label>
+                  
+                  {!editShowUploadOptions ? (
+                    <div className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded-2xl">
+                      <div className="flex items-center gap-3">
+                        {editItemImageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={editItemImageUrl}
+                            alt={editItemName}
+                            className="w-12 h-12 object-cover rounded-lg border border-zinc-200"
+                          />
+                        ) : (
+                          <span className="text-3xl select-none">{editItemIcon}</span>
+                        )}
+                        <div>
+                          <p className="text-xs font-semibold text-zinc-700">
+                            {editItemImageUrl ? 'Image URL' : 'Emoji Icon'}
+                          </p>
+                          {editItemImageUrl ? (
+                            <p className="text-xxs text-zinc-400 line-clamp-1">Cloudinary URL Active</p>
+                          ) : (
+                            <p className="text-xxs text-zinc-400">Fallback icon: {editItemIcon}</p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setEditShowUploadOptions(true)}
+                        className="px-3 py-1.5 bg-white border border-zinc-200 rounded-xl text-xs font-bold text-zinc-700 hover:bg-zinc-100 transition"
+                      >
+                        {editItemImageUrl ? 'Change Image' : 'Add Photo'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 p-4 bg-zinc-50/50 border border-zinc-200 rounded-2xl animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-zinc-500">Edit Identification:</span>
+                        <button
+                          type="button"
+                          onClick={() => setEditShowUploadOptions(false)}
+                          className="text-xs text-rose-600 font-semibold"
+                        >
+                          Cancel Change
+                        </button>
+                      </div>
+
+                      <div className="flex gap-2 p-1 bg-white rounded-xl border border-zinc-200">
+                        <button
+                          type="button"
+                          onClick={() => setEditItemOption('icon')}
+                          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${editItemOption === 'icon' ? 'bg-zinc-100 text-zinc-800' : 'text-zinc-500 hover:text-zinc-700'}`}
+                        >
+                          Option A: Icon
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditItemOption('gallery')}
+                          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${editItemOption === 'gallery' ? 'bg-zinc-100 text-zinc-800' : 'text-zinc-500 hover:text-zinc-700'}`}
+                        >
+                          Option B: Gallery
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditItemOption('camera')}
+                          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${editItemOption === 'camera' ? 'bg-zinc-100 text-zinc-800' : 'text-zinc-500 hover:text-zinc-700'}`}
+                        >
+                          Option C: Camera
+                        </button>
+                      </div>
+
+                      {editItemOption === 'icon' && (
+                        <div>
+                          <label className="block text-xxs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+                            Select Icon
+                          </label>
+                          <div className="grid grid-cols-8 gap-2 bg-white p-3 rounded-xl border border-zinc-200 max-h-32 overflow-y-auto">
+                            {PREDEFINED_ICONS.map(icon => (
+                              <button
+                                key={icon}
+                                type="button"
+                                onClick={() => setEditItemIcon(icon)}
+                                className={`text-2xl p-1 rounded-lg transition hover:bg-zinc-50 hover:scale-110 ${editItemIcon === icon ? 'bg-zinc-100 ring-2 ring-zinc-500 scale-110' : ''}`}
+                              >
+                                {icon}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {editItemOption === 'gallery' && (
+                        <div className="space-y-3">
+                          <label className="block text-xxs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+                            Upload from Gallery
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleEditItemImageUpload(file);
+                            }}
+                            className="w-full text-sm text-zinc-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200 cursor-pointer"
+                          />
+                          {editItemUploading && (
+                            <p className="text-xs text-zinc-650 font-semibold animate-pulse">Uploading image...</p>
+                          )}
+                          {editItemCloudinaryUrl ? (
+                            <div className="mt-2 p-2 bg-white border border-zinc-200 rounded-xl inline-block">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={editItemCloudinaryUrl} alt="Uploaded preview" className="h-20 w-20 object-cover rounded-lg" />
+                              <p className="text-xxs text-zinc-400 mt-1 text-center font-bold text-emerald-600">New Image Ready</p>
+                            </div>
+                          ) : editItemImageUrl ? (
+                            <div className="mt-2 p-2 bg-white border border-zinc-200 rounded-xl inline-block">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={editItemImageUrl} alt="Current preview" className="h-20 w-20 object-cover rounded-lg" />
+                              <p className="text-xxs text-zinc-400 mt-1 text-center">Current Image</p>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+
+                      {editItemOption === 'camera' && (
+                        <div className="space-y-3">
+                          <label className="block text-xxs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+                            Take Photo with Camera
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-950 text-white text-xs font-bold rounded-xl shadow-sm transition">
+                              📷 Take Photo
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleEditItemImageUpload(file);
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                          {editItemUploading && (
+                            <p className="text-xs text-zinc-650 font-semibold animate-pulse">Uploading photo...</p>
+                          )}
+                          {editItemCloudinaryUrl ? (
+                            <div className="mt-2 p-2 bg-white border border-zinc-200 rounded-xl inline-block">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={editItemCloudinaryUrl} alt="Captured preview" className="h-20 w-20 object-cover rounded-lg" />
+                              <p className="text-xxs text-zinc-400 mt-1 text-center font-bold text-emerald-600">New Photo Ready</p>
+                            </div>
+                          ) : editItemImageUrl ? (
+                            <div className="mt-2 p-2 bg-white border border-zinc-200 rounded-xl inline-block">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={editItemImageUrl} alt="Current preview" className="h-20 w-20 object-cover rounded-lg" />
+                              <p className="text-xxs text-zinc-400 mt-1 text-center">Current Image</p>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button type="button" onClick={() => setEditingItem(null)} className="flex-1 rounded-xl bg-zinc-100 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-200">

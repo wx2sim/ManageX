@@ -69,6 +69,7 @@ export interface Item {
   item_type: 'raw_material' | 'finished';
   unit: string;
   image_url: string | null;
+  icon?: string | null;
   cost_price: number;
   sell_price: number;
   stock_quantity: number;
