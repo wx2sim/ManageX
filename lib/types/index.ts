@@ -74,6 +74,8 @@ export interface Item {
   sell_price: number;
   stock_quantity: number;
   min_stock_alert?: number | null;
+  barcode?: string | null;
+  alternate_barcodes?: string[];
   is_active: boolean;
   created_at: string;
 }

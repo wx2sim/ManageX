@@ -10,6 +10,7 @@ import { formatDZD, formatDate } from '@/lib/utils/formatters';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import ItemCard from '@/components/service/ItemCard';
 import { uploadProductImage } from '@/lib/cloudinary';
+import BarcodeScanner from '@/components/stock/BarcodeScanner';
 
 interface MarketStockClientProps {
   items: Item[];
@@ -40,6 +41,14 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
   const { t, tError } = useTranslation();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const [isScannerModalOpen, setIsScannerModalOpen] = useState(false);
+  const [newItemBarcode, setNewItemBarcode] = useState('');
+  
+  // Barcode Edit States
+  const [editItemBarcode, setEditItemBarcode] = useState('');
+  const [editItemAlternateBarcodes, setEditItemAlternateBarcodes] = useState<string[]>([]);
+  const [newAlternateBarcode, setNewAlternateBarcode] = useState('');
 
   // --- INPUT FORM STATE ---
   const [isPending, startTransition] = useOverlayTransition();
@@ -126,6 +135,35 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const [localCategories, setLocalCategories] = useState(categories);
   const [localSubcats, setLocalSubcats] = useState(subcategories);
 
+  const finishedProducts = useMemo(() => items.filter(i => i.item_type === 'finished' || !i.item_type).filter(i => i.is_active !== false), [items]);
+
+  const processBarcode = (code: string) => {
+    setIsScannerModalOpen(false);
+    
+    // Search for existing item
+    const foundItem = finishedProducts.find(
+      item => item.barcode === code || (item.alternate_barcodes && item.alternate_barcodes.includes(code))
+    );
+    
+    if (foundItem) {
+      setIsInputModalOpen(true);
+      setIsNewItem(false);
+      setSelectedItemId(foundItem.id);
+      setBuyPrice(foundItem.cost_price.toString());
+      setSellPrice(foundItem.sell_price.toString());
+      setLastBoughtPrice(foundItem.cost_price);
+      setLastSellPrice(foundItem.sell_price);
+      setSuccessMessage(t('market.scanner.foundItem') || `Found product: ${foundItem.name}`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } else {
+      setIsInputModalOpen(true);
+      setIsNewItem(true);
+      setNewItemBarcode(code);
+      setSuccessMessage(t('market.scanner.newItem') || 'New barcode detected. Please add product details.');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    }
+  };
+
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLocalCategories(categories); }, [categories]);
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -201,9 +239,10 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         item_type: isNewItem ? newItemType : undefined,
         unit: isNewItem ? (newItemType === 'raw_material' ? newItemUnit : 'unit') : undefined,
         subcategory_id: (isNewItem && newItemType === 'finished') ? newItemSubcategoryId : undefined,
-        image_url: finalImageUrl,
-        icon: isNewItem ? newItemImage : undefined,
+        image_url: isNewItem && newItemOption !== 'icon' ? finalImageUrl : null,
+        icon: isNewItem && newItemOption === 'icon' ? newItemImage : null,
         min_stock_alert: (isNewItem && newItemMinStockAlert) ? Number(newItemMinStockAlert) : null,
+        barcode: (isNewItem && newItemBarcode) ? newItemBarcode : undefined,
         quantity: Number(quantity),
         unit_buy_price: Number(buyPrice),
         unit_sell_price: Number(sellPrice),
@@ -220,6 +259,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         setSelectedItemId('');
         setNewItemName('');
         setNewItemMinStockAlert('');
+        setNewItemBarcode('');
         setQuantity('');
         setBuyPrice('');
         setSellPrice('');
@@ -243,7 +283,6 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   }, [marketInputs, monthFilter]);
 
   const rawMaterials = items.filter(i => i.item_type === 'raw_material');
-  const finishedProducts = items.filter(i => i.item_type === 'finished' || !i.item_type).filter(i => i.is_active !== false);
 
   const filteredProductsForDisplay = useMemo(() => {
     return finishedProducts.filter(item => {
@@ -301,6 +340,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
     setEditSellPrice(item.sell_price.toString());
     setEditStockQty(item.stock_quantity.toString());
     setEditMinStockAlert(item.min_stock_alert !== undefined && item.min_stock_alert !== null ? item.min_stock_alert.toString() : '');
+    setEditItemBarcode(item.barcode || '');
+    setEditItemAlternateBarcodes(item.alternate_barcodes || []);
     
     // Check if image_url is an emoji (legacy data) or actual URL
     const isLegacyEmoji = item.image_url && !item.image_url.startsWith('http') && !item.image_url.startsWith('/');
@@ -334,7 +375,9 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         sell_price: Number(editSellPrice),
         stock_quantity: Number(editStockQty),
         min_stock_alert: editMinStockAlert ? Number(editMinStockAlert) : null,
-        subcategory_id: editItemSubcategoryId || null
+        subcategory_id: editItemSubcategoryId || null,
+        barcode: editItemBarcode || null,
+        alternate_barcodes: editItemAlternateBarcodes
       };
 
       if (editShowUploadOptions) {
@@ -342,6 +385,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
           updatedData.icon = editItemIcon;
           updatedData.image_url = null;
         } else {
+          updatedData.icon = null;
           if (editItemFile) {
             setEditItemUploading(true);
             try {
@@ -589,7 +633,18 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
       {/* Quick Action Badges */}
       {!isModal && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <button
+            onClick={() => setIsScannerModalOpen(true)}
+            className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:border-emerald-200 transition group"
+          >
+            <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform">
+              📷
+            </div>
+            <h3 className="font-bold text-zinc-900">{t('market.tabs.scanner') || 'Scan Product'}</h3>
+            <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.scannerDesc') || 'Scan barcode'}</p>
+          </button>
+
           <button
             onClick={() => setIsInputModalOpen(true)}
             className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:border-emerald-200 transition group"
@@ -625,6 +680,15 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         </div>
       )}
 
+
+      {isScannerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <BarcodeScanner 
+            onScan={processBarcode} 
+            onClose={() => setIsScannerModalOpen(false)} 
+          />
+        </div>
+      )}
 
       {isInputModalOpen && (
         <div 
@@ -727,6 +791,19 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                         onChange={(e) => setNewItemName(e.target.value)}
                         required={isNewItem}
                         placeholder={t('market.input.newProductNamePlaceholder')}
+                        className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
+                        {t('market.input.barcode') || 'Barcode (Optional)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={newItemBarcode}
+                        onChange={(e) => setNewItemBarcode(e.target.value)}
+                        placeholder="Scan or enter barcode"
                         className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
                       />
                     </div>
@@ -886,25 +963,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                         </div>
                       )}
 
-                      {newItemOption !== 'icon' && (
-                        <div className="mt-4 pt-3 border-t border-dashed border-emerald-100">
-                          <label className="block text-xxs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
-                            Optional Icon Fallback
-                          </label>
-                          <div className="grid grid-cols-8 gap-2 bg-white p-3 rounded-xl border border-emerald-200 max-h-32 overflow-y-auto">
-                            {PREDEFINED_ICONS.map(icon => (
-                              <button
-                                key={icon}
-                                type="button"
-                                onClick={() => setNewItemImage(icon)}
-                                className={`text-2xl p-1 rounded-lg transition hover:bg-emerald-50 hover:scale-110 ${newItemImage === icon ? 'bg-emerald-100 ring-2 ring-emerald-500 scale-110' : ''}`}
-                              >
-                                {icon}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+
                     </div>
 
                     <div>
@@ -1156,6 +1215,75 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                 <div>
                   <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">{t('market.input.minStockAlert') || 'Alerte Stock Minimum (Min Stock Alert)'}</label>
                   <input type="number" value={editMinStockAlert} onChange={e => setEditMinStockAlert(e.target.value)} placeholder={t('market.input.optionalAlert') || 'e.g. 5 (Optionnel)'} className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none" />
+                </div>
+
+                {/* Linked Barcodes Section */}
+                <div className="pt-2 border-t border-zinc-100">
+                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                    Linked Barcodes
+                  </label>
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={editItemBarcode}
+                      onChange={(e) => setEditItemBarcode(e.target.value)}
+                      placeholder="Primary Barcode"
+                      className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none"
+                    />
+                    
+                    {editItemAlternateBarcodes.length > 0 && (
+                      <div className="space-y-2">
+                        {editItemAlternateBarcodes.map((code, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={code}
+                              readOnly
+                              className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm text-zinc-600 focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setEditItemAlternateBarcodes(prev => prev.filter((_, i) => i !== idx))}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-xl"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newAlternateBarcode}
+                        onChange={(e) => setNewAlternateBarcode(e.target.value)}
+                        placeholder="Add alternate barcode"
+                        className="flex-1 rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (newAlternateBarcode.trim()) {
+                              setEditItemAlternateBarcodes(prev => [...prev, newAlternateBarcode.trim()]);
+                              setNewAlternateBarcode('');
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (newAlternateBarcode.trim()) {
+                            setEditItemAlternateBarcodes(prev => [...prev, newAlternateBarcode.trim()]);
+                            setNewAlternateBarcode('');
+                          }
+                        }}
+                        className="px-4 py-2 bg-zinc-100 text-zinc-700 font-bold rounded-xl text-sm hover:bg-zinc-200"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 
                 {/* Identification Section */}

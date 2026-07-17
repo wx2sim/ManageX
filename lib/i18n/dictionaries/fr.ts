@@ -338,6 +338,8 @@ export const fr = {
       inputDesc: 'Ajouter un produit ou matière',
       recipesDesc: 'Gérer les nomenclatures',
       categoriesDesc: 'Structurer le catalogue',
+      scanner: 'Scanner Produit',
+      scannerDesc: 'Scanner un code-barres',
     },
     recipes: {
       rawMaterials: 'MATIÈRES PREMIÈRES',
@@ -391,6 +393,7 @@ export const fr = {
       selectIcon: 'Sélectionner une icône',
       minStockAlert: 'Alerte Stock Minimum',
       optionalAlert: 'e.g. 5 (Optionnel)',
+      barcode: 'Code-barres (Optionnel)',
       quantity: 'Quantité *',
       quantityPlaceholder: 'ex: 5',
       buyPrice: 'Prix d\'Achat *',

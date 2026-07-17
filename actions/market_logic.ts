@@ -11,6 +11,7 @@ interface MarketInputData {
   category_id?: string;
   subcategory_id?: string;
   min_stock_alert?: number | null;
+  barcode?: string | null;
   
   quantity: number;
   unit_buy_price: number;
@@ -52,15 +53,15 @@ export async function addMarketInput(data: MarketInputData) {
           profile_id: user.id,
           name: data.name,
           subcategory_id: data.subcategory_id || null,
-          image_url: data.image_url || null,
-          icon: data.icon || null,
+          image_url: data.image_url || data.icon || null,
           item_type: data.item_type || 'finished',
           unit: data.unit || 'unit',
           cost_price: data.unit_buy_price,
           sell_price: data.unit_sell_price,
           stock_quantity: 0, // Will be incremented below
           is_active: true,
-          min_stock_alert: data.min_stock_alert !== undefined ? data.min_stock_alert : null
+          min_stock_alert: data.min_stock_alert !== undefined ? data.min_stock_alert : null,
+          barcode: data.barcode || null
         })
         .select('id')
         .single();
@@ -194,6 +195,8 @@ export async function updateItem(
     image_url?: string | null;
     icon?: string | null;
     subcategory_id?: string | null;
+    barcode?: string | null;
+    alternate_barcodes?: string[];
   }
 ) {
   try {
@@ -212,11 +215,17 @@ export async function updateItem(
     if (data.image_url !== undefined) {
       updateData.image_url = data.image_url;
     }
-    if (data.icon !== undefined) {
-      updateData.icon = data.icon;
+    if (data.icon !== undefined && data.icon !== null) {
+      updateData.image_url = data.icon;
     }
     if (data.subcategory_id !== undefined) {
       updateData.subcategory_id = data.subcategory_id;
+    }
+    if (data.barcode !== undefined) {
+      updateData.barcode = data.barcode;
+    }
+    if (data.alternate_barcodes !== undefined) {
+      updateData.alternate_barcodes = data.alternate_barcodes;
     }
 
     const { error } = await supabase

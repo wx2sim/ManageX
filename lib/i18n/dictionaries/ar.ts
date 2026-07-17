@@ -340,6 +340,8 @@ export const ar: typeof fr = {
       inputDesc: 'إضافة منتج أو مادة',
       recipesDesc: 'إدارة مكونات الإنتاج',
       categoriesDesc: 'هيكلة الكتالوج',
+      scanner: 'مسح المنتج',
+      scannerDesc: 'مسح الباركود',
     },
     recipes: {
       rawMaterials: 'مواد خام',
@@ -393,6 +395,7 @@ export const ar: typeof fr = {
       selectIcon: 'اختر أيقونة',
       minStockAlert: 'تنبيه الحد الأدنى للمخزون',
       optionalAlert: 'مثال 5 (اختياري)',
+      barcode: 'الباركود (اختياري)',
       quantity: 'الكمية *',
       quantityPlaceholder: 'مثل: 5',
       buyPrice: 'سعر الشراء *',
