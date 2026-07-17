@@ -13,11 +13,18 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
   const [camError, setCamError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Use a ref for onScan to avoid restarting the camera when the parent re-renders
+  const onScanRef = useRef(onScan);
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
+
   useEffect(() => {
     if (mode !== 'camera') return;
     
     let html5QrCode: Html5Qrcode | null = null;
     let isMounted = true;
+    let isScanningResolved = false;
 
     const startScanner = async () => {
       try {
@@ -30,8 +37,10 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
             qrbox: { width: 250, height: 150 }
           },
           (decodedText) => {
-            if (html5QrCode && html5QrCode.isScanning) {
-              html5QrCode.stop().then(() => onScan(decodedText)).catch(console.error);
+            // Prevent multiple triggers
+            if (!isScanningResolved) {
+              isScanningResolved = true;
+              onScanRef.current(decodedText);
             }
           },
           (errorMessage) => {
@@ -63,7 +72,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
         html5QrCode.stop().catch(e => console.error('Failed to stop scanner', e));
       }
     };
-  }, [mode, onScan]);
+  }, [mode]);
 
   useEffect(() => {
     if (mode === 'gun') {
