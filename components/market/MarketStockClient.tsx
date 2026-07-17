@@ -86,6 +86,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
   // Edit Item State
   const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [selectedProductCard, setSelectedProductCard] = useState<Item | null>(null);
   const [editItemName, setEditItemName] = useState('');
   const [editCostPrice, setEditCostPrice] = useState('');
   const [editSellPrice, setEditSellPrice] = useState('');
@@ -655,6 +656,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                   readonly={true}
                   onEdit={handleEditClick}
                   onDelete={handleDeleteItem}
+                  onClick={setSelectedProductCard}
                 />
               ))}
             </div>
@@ -1156,6 +1158,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
             t={t}
             handleDeleteInput={handleDeleteInput}
             handleEditInputClick={handleEditInputClick}
+            onProductClick={setSelectedProductCard}
           />
         </div>
       )}
@@ -1645,7 +1648,84 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         </div>
       )}
 
-    </div>
+      {/* Product Details Modal */}
+      {selectedProductCard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setSelectedProductCard(null)}>
+          <div 
+            className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl border border-zinc-100" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Image/Header */}
+            <div className="h-64 bg-zinc-100 relative flex items-center justify-center border-b border-zinc-100">
+              {(() => {
+                const hasImageUrl = selectedProductCard.image_url && (selectedProductCard.image_url.startsWith('http') || selectedProductCard.image_url.startsWith('/'));
+                const hasIcon = !!selectedProductCard.icon;
+                const isLegacyEmoji = selectedProductCard.image_url && !selectedProductCard.image_url.startsWith('http') && !selectedProductCard.image_url.startsWith('/');
+                if (hasImageUrl) return <img src={selectedProductCard.image_url!} alt={selectedProductCard.name} className="w-full h-full object-cover" />;
+                if (hasIcon) return <span className="text-8xl select-none drop-shadow-md">{selectedProductCard.icon}</span>;
+                if (isLegacyEmoji) return <span className="text-8xl select-none drop-shadow-md">{selectedProductCard.image_url}</span>;
+                return <span className="text-8xl select-none drop-shadow-md">🛍️</span>;
+              })()}
+              <button 
+                onClick={() => setSelectedProductCard(null)}
+                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full transition backdrop-blur-md"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Details */}
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-2xl font-bold text-zinc-900 leading-tight">{selectedProductCard.name}</h3>
+                  <p className="text-sm text-zinc-500 font-medium tracking-wide mt-1">
+                    {selectedProductCard.barcode ? `Barcode: ${selectedProductCard.barcode}` : t('market.input.barcode') || 'No Barcode'}
+                  </p>
+                </div>
+                <div className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-xl text-sm font-bold border border-emerald-200 whitespace-nowrap shrink-0 ml-2 shadow-sm">
+                  {selectedProductCard.stock_quantity} {selectedProductCard.unit}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="bg-zinc-50 p-3 rounded-2xl border border-zinc-100">
+                  <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-0.5">{t('market.input.buyPrice') || 'Buy Price'}</p>
+                  <p className="text-base font-bold text-zinc-900">{formatDZD(selectedProductCard.cost_price)}</p>
+                </div>
+                <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-100">
+                  <p className="text-[10px] text-emerald-700 uppercase font-bold tracking-wider mb-0.5">{t('market.input.sellPrice') || 'Sell Price'}</p>
+                  <p className="text-base font-bold text-emerald-700">{formatDZD(selectedProductCard.sell_price)}</p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setSelectedProductCard(null);
+                    handleEditClick(selectedProductCard);
+                  }}
+                  className="flex-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold py-3.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  {t('common.edit') || 'Edit'}
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedProductCard(null);
+                    handleDeleteItem(selectedProductCard);
+                  }}
+                  className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold py-3.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm border border-rose-100"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  {t('common.delete') || 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}    </div>
   );
 }
 
@@ -2261,7 +2341,7 @@ function ProduceModal({ recipeId, recipe, ingredients, rawMaterials, categories,
 }
 
 // Ledger and Category management tabs (preserved functionality)
-function LedgerTab({ marketInputs, items, monthFilter, setMonthFilter, t, handleDeleteInput, handleEditInputClick }: any) {
+function LedgerTab({ marketInputs, items, monthFilter, setMonthFilter, t, handleDeleteInput, handleEditInputClick, onProductClick }: any) {
   // Calculate FIFO remaining stock per batch dynamically
   const batchRemainingStock = useMemo(() => {
     const grouped: Record<string, any[]> = marketInputs.reduce((acc: any, input: any) => {
@@ -2379,7 +2459,13 @@ function LedgerTab({ marketInputs, items, monthFilter, setMonthFilter, t, handle
                     <td className="whitespace-nowrap px-6 py-4 font-medium text-zinc-900">
                       {formatDate(row.shopping_date)}
                     </td>
-                    <td className="px-6 py-4 font-bold text-zinc-900">
+                    <td 
+                      className="px-6 py-4 font-bold text-emerald-600 hover:text-emerald-800 cursor-pointer transition"
+                      onClick={() => {
+                        const targetItem = items.find((i: any) => i.id === row.item_id);
+                        if (targetItem) onProductClick(targetItem);
+                      }}
+                    >
                       {row.items?.name || t('market.ledger.unknownItem')}
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -2680,6 +2766,8 @@ function CategoryManagementTab({
           })}
         </div>
       </div>
+
+
     </div>
   );
 }

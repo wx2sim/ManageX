@@ -11,6 +11,7 @@ interface ItemCardProps {
   readonly?: boolean;
   onEdit?: (item: Item) => void;
   onDelete?: (item: Item) => void;
+  onClick?: (item: Item) => void;
   compact?: boolean;
   isAdmin?: boolean;
   viewType?: 'list' | 'grid' | 'service';
@@ -23,6 +24,7 @@ export default function ItemCard({
   readonly = false,
   onEdit,
   onDelete,
+  onClick,
   compact = false,
   isAdmin = false,
   viewType = 'grid'
@@ -166,9 +168,11 @@ export default function ItemCard({
     };
 
     return (
-      <div className={`flex items-center gap-4 p-3 bg-white border border-pink-100/70 rounded-2xl transition hover:shadow-sm ${
+      <div 
+        onClick={() => onClick && onClick(item)}
+        className={`flex items-center gap-4 p-3 bg-white border border-pink-100/70 rounded-2xl transition hover:shadow-sm ${
         isOutOfStock ? 'opacity-60 grayscale' : ''
-      }`}>
+      } ${onClick ? 'cursor-pointer' : ''}`}>
         {/* 80x80px Image Box */}
         <div className="w-20 h-20 rounded-2xl bg-pink-50/50 flex items-center justify-center border border-pink-100/20 overflow-hidden shrink-0 relative">
           {mediaType === 'image' && mediaValue ? (
@@ -263,13 +267,15 @@ export default function ItemCard({
   const isCompact = readonly || compact;
 
   return (
-    <div className={`group relative flex flex-col justify-between overflow-hidden rounded-[1.5rem] border bg-white transition hover:shadow-md ${
+    <div 
+      onClick={() => onClick && onClick(item)}
+      className={`group relative flex flex-col justify-between overflow-hidden rounded-[1.5rem] border bg-white transition hover:shadow-md ${
       (isSelected && !readonly)
         ? 'border-pink-500 ring-2 ring-pink-100' 
         : isOutOfStock 
           ? 'border-zinc-100 opacity-60 grayscale' 
           : 'border-pink-100/70 hover:border-pink-200'
-    } ${isCompact ? 'p-3' : 'p-5'}`}>
+    } ${isCompact ? 'p-3' : 'p-5'} ${onClick ? 'cursor-pointer' : ''}`}>
       
       {/* 120x120px Image/Icon Box */}
       <div className="w-[120px] h-[120px] mx-auto rounded-2xl bg-pink-50/50 flex items-center justify-center border border-pink-100/20 overflow-hidden shrink-0 relative mb-3">
