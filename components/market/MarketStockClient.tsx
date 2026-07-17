@@ -140,9 +140,10 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const processBarcode = (code: string) => {
     setIsScannerModalOpen(false);
     
-    // Search for existing item
-    const foundItem = finishedProducts.find(
-      item => item.barcode === code || (item.alternate_barcodes && item.alternate_barcodes.includes(code))
+    const cleanCode = code.trim();
+    // Search for existing item in all items (both finished and raw materials)
+    const foundItem = items.find(
+      item => item.barcode === cleanCode || (item.alternate_barcodes && item.alternate_barcodes.includes(cleanCode))
     );
     
     if (foundItem) {
@@ -158,7 +159,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
     } else {
       setIsInputModalOpen(true);
       setIsNewItem(true);
-      setNewItemBarcode(code);
+      setNewItemBarcode(cleanCode);
       setSuccessMessage(t('market.scanner.newItem') || 'New barcode detected. Please add product details.');
       setTimeout(() => setSuccessMessage(null), 3000);
     }
