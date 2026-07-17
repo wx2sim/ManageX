@@ -43,6 +43,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [isScannerModalOpen, setIsScannerModalOpen] = useState(false);
+  const [scannerMode, setScannerMode] = useState<'stock_entry' | 'editItemBarcode' | 'newItemBarcode' | 'newAlternateBarcode'>('stock_entry');
   const [newItemBarcode, setNewItemBarcode] = useState('');
   
   // Barcode Edit States
@@ -143,7 +144,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
     const cleanCode = code.trim();
     // Search for existing item in all items (both finished and raw materials)
     const foundItem = items.find(
-      item => item.barcode === cleanCode || (item.alternate_barcodes && item.alternate_barcodes.includes(cleanCode))
+      item => item.barcode?.trim() === cleanCode || (item.alternate_barcodes && item.alternate_barcodes.some(b => b.trim() === cleanCode))
     );
     
     if (foundItem) {
@@ -243,7 +244,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         image_url: isNewItem && newItemOption !== 'icon' ? finalImageUrl : null,
         icon: isNewItem && newItemOption === 'icon' ? newItemImage : null,
         min_stock_alert: (isNewItem && newItemMinStockAlert) ? Number(newItemMinStockAlert) : null,
-        barcode: (isNewItem && newItemBarcode) ? newItemBarcode : undefined,
+        barcode: (isNewItem && newItemBarcode) ? newItemBarcode.trim() : undefined,
         quantity: Number(quantity),
         unit_buy_price: Number(buyPrice),
         unit_sell_price: Number(sellPrice),
@@ -636,7 +637,10 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       {!isModal && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <button
-            onClick={() => setIsScannerModalOpen(true)}
+            onClick={() => {
+              setScannerMode('stock_entry');
+              setIsScannerModalOpen(true);
+            }}
             className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:border-emerald-200 transition group"
           >
             <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform">
@@ -685,7 +689,21 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       {isScannerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <BarcodeScanner 
-            onScan={processBarcode} 
+            onScan={(code) => {
+              const cleanCode = code.trim();
+              if (scannerMode === 'stock_entry') {
+                processBarcode(cleanCode);
+              } else if (scannerMode === 'editItemBarcode') {
+                setEditItemBarcode(cleanCode);
+                setIsScannerModalOpen(false);
+              } else if (scannerMode === 'newItemBarcode') {
+                setNewItemBarcode(cleanCode);
+                setIsScannerModalOpen(false);
+              } else if (scannerMode === 'newAlternateBarcode') {
+                setNewAlternateBarcode(cleanCode);
+                setIsScannerModalOpen(false);
+              }
+            }} 
             onClose={() => setIsScannerModalOpen(false)} 
           />
         </div>
@@ -757,6 +775,28 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                         </optgroup>
                       ))}
                     </select>
+                    {selectedItemId && (
+                      <div className="mt-4 p-3 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-xl bg-white flex items-center justify-center text-3xl shadow-sm overflow-hidden shrink-0">
+                          {(() => {
+                            const selectedItem = items.find(i => i.id === selectedItemId);
+                            if (!selectedItem) return '🛍️';
+                            const hasImageUrl = selectedItem.image_url && (selectedItem.image_url.startsWith('http') || selectedItem.image_url.startsWith('/'));
+                            const hasIcon = !!selectedItem.icon;
+                            const isLegacyEmoji = selectedItem.image_url && !selectedItem.image_url.startsWith('http') && !selectedItem.image_url.startsWith('/');
+                            if (hasImageUrl) return <img src={selectedItem.image_url!} alt={selectedItem.name} className="w-full h-full object-cover" />;
+                            if (hasIcon) return selectedItem.icon;
+                            if (isLegacyEmoji) return selectedItem.image_url;
+                            return '🛍️';
+                          })()}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-zinc-900">{items.find(i => i.id === selectedItemId)?.name}</h4>
+                          <p className="text-xs text-zinc-500 mt-0.5">{items.find(i => i.id === selectedItemId)?.barcode ? `Barcode: ${items.find(i => i.id === selectedItemId)?.barcode}` : ''}</p>
+                          <p className="text-xs font-bold text-emerald-700 mt-1">{t('market.input.inStock') || 'In Stock'}: {items.find(i => i.id === selectedItemId)?.stock_quantity || 0}</p>
+                        </div>
+                      </div>
+                    )}
                     {selectedItemId && lastBoughtPrice !== null && (
                       <p className="mt-2 text-xs text-emerald-700 font-medium bg-emerald-100/50 p-2 rounded-lg border border-emerald-100">
                         {t('market.input.lastBoughtFor').replace('{buyPrice}', formatDZD(lastBoughtPrice)).replace('{sellPrice}', formatDZD(lastSellPrice || 0))}
@@ -800,13 +840,26 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                       <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
                         {t('market.input.barcode') || 'Barcode (Optional)'}
                       </label>
-                      <input
-                        type="text"
-                        value={newItemBarcode}
-                        onChange={(e) => setNewItemBarcode(e.target.value)}
-                        placeholder="Scan or enter barcode"
-                        className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newItemBarcode}
+                          onChange={(e) => setNewItemBarcode(e.target.value)}
+                          placeholder="Scan or enter barcode"
+                          className="flex-1 w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setScannerMode('newItemBarcode');
+                            setIsScannerModalOpen(true);
+                          }}
+                          className="px-4 py-3 bg-emerald-100 text-emerald-700 font-bold rounded-xl text-lg hover:bg-emerald-200"
+                          title="Scan Barcode"
+                        >
+                          📷
+                        </button>
+                      </div>
                     </div>
 
                     {newItemType === 'raw_material' && (
@@ -1224,14 +1277,26 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                     Linked Barcodes
                   </label>
                   <div className="space-y-3">
-                    <input
-                      type="text"
-                      value={editItemBarcode}
-                      onChange={(e) => setEditItemBarcode(e.target.value)}
-                      placeholder="Primary Barcode"
-                      className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none"
-                    />
-                    
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={editItemBarcode}
+                        onChange={(e) => setEditItemBarcode(e.target.value)}
+                        placeholder="Primary Barcode"
+                        className="flex-1 w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScannerMode('editItemBarcode');
+                          setIsScannerModalOpen(true);
+                        }}
+                        className="px-4 py-3 bg-zinc-100 text-zinc-700 font-bold rounded-xl text-lg hover:bg-zinc-200 transition"
+                        title="Scan Barcode"
+                      >
+                        📷
+                      </button>
+                    </div>
                     {editItemAlternateBarcodes.length > 0 && (
                       <div className="space-y-2">
                         {editItemAlternateBarcodes.map((code, idx) => (
@@ -1271,6 +1336,17 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                           }
                         }}
                       />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScannerMode('newAlternateBarcode');
+                          setIsScannerModalOpen(true);
+                        }}
+                        className="px-3 py-2 bg-zinc-100 text-zinc-700 font-bold rounded-xl text-lg hover:bg-zinc-200 transition"
+                        title="Scan Barcode"
+                      >
+                        📷
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
