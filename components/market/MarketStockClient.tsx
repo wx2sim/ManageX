@@ -483,6 +483,60 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         </div>
       )}
 
+      {/* Quick Action Badges */}
+      {!isModal && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <button
+            onClick={() => {
+              setScannerMode('stock_entry');
+              setIsScannerModalOpen(true);
+            }}
+            className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:border-emerald-200 transition group"
+          >
+            <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform">
+              📷
+            </div>
+            <h3 className="font-bold text-zinc-900">{t('market.tabs.scanner') || 'Scan Product'}</h3>
+            <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.scannerDesc') || 'Scan barcode'}</p>
+          </button>
+
+          <button
+            onClick={() => setIsInputModalOpen(true)}
+            className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:border-emerald-200 transition group"
+          >
+            <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform">
+              📥
+            </div>
+            <h3 className="font-bold text-zinc-900">{t('market.tabs.input') || 'Stock Entry'}</h3>
+            <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.inputDesc') || 'Ajouter un produit ou matière'}</p>
+          </button>
+
+          <button
+            onClick={() => setIsRecipesModalOpen(true)}
+            className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:amber-200 transition group"
+          >
+            <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform">
+              📋
+            </div>
+            <h3 className="font-bold text-zinc-900">{t('market.tabs.recipes') || 'Recipes & BOM'}</h3>
+            <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.recipesDesc') || 'Gérer les nomenclatures'}</p>
+          </button>
+
+          <button
+            onClick={() => setIsCategoriesModalOpen(true)}
+            className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:indigo-200 transition group"
+          >
+            <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform">
+              ⚙️
+            </div>
+            <h3 className="font-bold text-zinc-900">{t('market.tabs.categories')}</h3>
+            <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.categoriesDesc') || 'Structurer le catalogue'}</p>
+          </button>
+        </div>
+      )}
+
+
+
       {/* Available Products Grid */}
       <div className="mb-8 space-y-4">
         <div className="flex items-center justify-between">
@@ -631,59 +685,6 @@ export default function MarketStockClient({ items, categories, subcategories, ma
           </div>
         )}
       </div>
-
-
-      {/* Quick Action Badges */}
-      {!isModal && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <button
-            onClick={() => {
-              setScannerMode('stock_entry');
-              setIsScannerModalOpen(true);
-            }}
-            className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:border-emerald-200 transition group"
-          >
-            <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform">
-              📷
-            </div>
-            <h3 className="font-bold text-zinc-900">{t('market.tabs.scanner') || 'Scan Product'}</h3>
-            <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.scannerDesc') || 'Scan barcode'}</p>
-          </button>
-
-          <button
-            onClick={() => setIsInputModalOpen(true)}
-            className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:border-emerald-200 transition group"
-          >
-            <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform">
-              📥
-            </div>
-            <h3 className="font-bold text-zinc-900">{t('market.tabs.input') || 'Stock Entry'}</h3>
-            <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.inputDesc') || 'Ajouter un produit ou matière'}</p>
-          </button>
-
-          <button
-            onClick={() => setIsRecipesModalOpen(true)}
-            className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:amber-200 transition group"
-          >
-            <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform">
-              📋
-            </div>
-            <h3 className="font-bold text-zinc-900">{t('market.tabs.recipes') || 'Recipes & BOM'}</h3>
-            <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.recipesDesc') || 'Gérer les nomenclatures'}</p>
-          </button>
-
-          <button
-            onClick={() => setIsCategoriesModalOpen(true)}
-            className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:indigo-200 transition group"
-          >
-            <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform">
-              ⚙️
-            </div>
-            <h3 className="font-bold text-zinc-900">{t('market.tabs.categories')}</h3>
-            <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.categoriesDesc') || 'Structurer le catalogue'}</p>
-          </button>
-        </div>
-      )}
 
 
       {isScannerModalOpen && (
