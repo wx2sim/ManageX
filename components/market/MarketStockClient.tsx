@@ -3,6 +3,7 @@
 import { useOverlayTransition } from '@/lib/context/OverlayContext';
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Item, ServiceCategory, ServiceSubcategory, MarketInput, Recipe, RecipeIngredient } from '@/lib/types';
 import { addMarketInput, updateItem, deleteItem, deleteMarketInput, updateMarketInput } from '@/actions/market_logic';
 import { addRecipe, produceRecipe, deleteRecipe, updateItemSubcategory, editRecipe } from '@/actions/recipes';
@@ -487,11 +488,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       {/* Quick Action Badges */}
       {!isModal && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <button
-            onClick={() => {
-              setScannerMode('stock_entry');
-              setIsScannerModalOpen(true);
-            }}
+          <Link
+            href="/stock/scanner"
             className="flex flex-col items-center justify-center p-6 bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-md hover:border-emerald-200 transition group"
           >
             <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform">
@@ -499,7 +497,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
             </div>
             <h3 className="font-bold text-zinc-900">{t('market.tabs.scanner') || 'Scan Product'}</h3>
             <p className="text-xs text-zinc-500 mt-1">{t('market.tabs.scannerDesc') || 'Scan barcode'}</p>
-          </button>
+          </Link>
 
           <button
             onClick={() => setIsInputModalOpen(true)}

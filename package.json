@@ -11,8 +11,9 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.35.0",
+    "@zxing/browser": "^0.2.1",
+    "@zxing/library": "^0.21.3",
     "browser-image-compression": "^2.0.2",
-    "html5-qrcode": "^2.3.8",
     "lottie-react": "^2.4.1",
     "next": "16.2.9",
     "next-cloudinary": "^6.17.5",

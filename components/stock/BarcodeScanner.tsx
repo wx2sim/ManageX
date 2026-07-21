@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { BrowserMultiFormatReader } from '@zxing/browser';
 
 interface BarcodeScannerProps {
   onScan: (code: string) => void;
@@ -12,94 +12,72 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
   const [mode, setMode] = useState<'camera' | 'gun'>('camera');
   const [camError, setCamError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Use a ref for onScan to avoid restarting the camera when the parent re-renders
   const onScanRef = useRef(onScan);
-  useEffect(() => {
-    onScanRef.current = onScan;
-  }, [onScan]);
+  useEffect(() => { onScanRef.current = onScan; }, [onScan]);
 
   useEffect(() => {
     if (mode !== 'camera') return;
-    
-    let html5QrCode: Html5Qrcode | null = null;
+
     let isMounted = true;
-    let isScanningResolved = false;
+    const codeReader = new BrowserMultiFormatReader();
+    let controls: { stop: () => void } | null = null;
+    const lastCode = { value: '', ts: 0 };
 
     const startScanner = async () => {
       try {
         setCamError(null);
-        html5QrCode = new Html5Qrcode("reader");
-        await html5QrCode.start(
-          { facingMode: "environment" }, // Prefer back camera
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 150 }
-          },
-          (decodedText) => {
-            // Prevent multiple triggers
-            if (!isScanningResolved) {
-              isScanningResolved = true;
-              onScanRef.current(decodedText);
-            }
-          },
-          (errorMessage) => {
-            // ignore constant scanning errors
+        const videoEl = videoRef.current;
+        if (!videoEl) return;
+        controls = await codeReader.decodeFromVideoDevice(
+          undefined,
+          videoEl,
+          (result) => {
+            if (!result) return;
+            const code = result.getText().trim();
+            const now = Date.now();
+            if (code === lastCode.value && now - lastCode.ts < 2000) return;
+            lastCode.value = code;
+            lastCode.ts = now;
+            if (isMounted) onScanRef.current(code);
           }
         );
       } catch (err: any) {
-        console.error("Camera start failed", err);
         if (!isMounted) return;
-        
-        // Handle common errors (HTTP local IP, denied permissions)
-        if (err?.message?.includes('https') || err?.message?.includes('secure context') || err?.name === 'NotAllowedError') {
-          setCamError("La caméra nécessite une connexion sécurisée (HTTPS). Si vous testez sur votre téléphone en local, cela ne fonctionnera pas. Veuillez déployer en production.");
+        if (err?.message?.includes('https') || err?.name === 'NotAllowedError') {
+          setCamError('La caméra nécessite HTTPS. Testez en production.');
         } else {
-          setCamError("Impossible d'accéder à la caméra. Veuillez vérifier les permissions.");
+          setCamError("Impossible d'accéder à la caméra. Vérifiez les permissions.");
         }
       }
     };
 
-    // Delay to prevent React StrictMode race conditions with DOM mounting
-    const timer = setTimeout(() => {
-       if (isMounted) startScanner();
-    }, 200);
+    const timer = setTimeout(() => { if (isMounted) startScanner(); }, 200);
 
     return () => {
       isMounted = false;
       clearTimeout(timer);
-      if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.stop().catch(e => console.error('Failed to stop scanner', e));
-      }
+      try { controls?.stop(); } catch {}
     };
   }, [mode]);
 
   useEffect(() => {
-    if (mode === 'gun') {
-      inputRef.current?.focus();
-    }
+    if (mode === 'gun') inputRef.current?.focus();
   }, [mode]);
 
   const handleGunInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       const val = e.currentTarget.value.trim();
-      if (val) {
-        onScan(val);
-      }
+      if (val) onScan(val);
       e.currentTarget.value = '';
-    }
-  };
-
-  const handleGunContainerClick = () => {
-    if (mode === 'gun') {
-      inputRef.current?.focus();
     }
   };
 
   return (
     <div className="bg-white rounded-3xl p-6 md:p-8 border border-emerald-100 shadow-2xl max-w-md w-full relative animate-in zoom-in-95 duration-200 pointer-events-auto mx-auto my-auto mt-[10vh]">
       <button onClick={onClose} className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-bold">&times;</button>
-      
+
       <h2 className="text-xl font-bold text-zinc-900 mb-6">Scanner Produit</h2>
 
       <div className="flex gap-2 bg-zinc-50 p-1.5 rounded-xl border border-zinc-200/60 mb-6">
@@ -119,7 +97,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
         </button>
       </div>
 
-      <div className="min-h-[300px] flex flex-col items-center justify-center border-2 border-dashed border-emerald-200 rounded-2xl bg-emerald-50/30 overflow-hidden relative" onClick={handleGunContainerClick}>
+      <div className="min-h-[300px] flex flex-col items-center justify-center border-2 border-dashed border-emerald-200 rounded-2xl bg-emerald-50/30 overflow-hidden relative">
         {mode === 'camera' ? (
           camError ? (
             <div className="p-6 text-center">
@@ -128,20 +106,27 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
               <p className="text-xs text-red-600/80">{camError}</p>
             </div>
           ) : (
-            <div id="reader" className="w-full h-full [&>video]:object-cover" />
+            // eslint-disable-next-line @next/next/no-img-element
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover"
+              autoPlay
+              playsInline
+              muted
+            />
           )
         ) : (
-          <div className="flex flex-col items-center justify-center p-8 text-center h-full w-full">
+          <div className="flex flex-col items-center justify-center p-8 text-center h-full w-full" onClick={() => inputRef.current?.focus()}>
             <div className="text-4xl mb-4 animate-bounce">⚡</div>
             <p className="text-sm font-bold text-emerald-800">Prêt à scanner</p>
             <p className="text-xs text-emerald-600/70 mt-2">Pointez votre scanner USB/Bluetooth vers un code-barres.</p>
-            <input 
+            <input
               ref={inputRef}
               type="text"
               onKeyDown={handleGunInput}
               onBlur={() => { if (mode === 'gun') inputRef.current?.focus(); }}
-              className="absolute opacity-0 pointer-events-none" 
-              autoFocus 
+              className="absolute opacity-0 pointer-events-none"
+              autoFocus
             />
           </div>
         )}
