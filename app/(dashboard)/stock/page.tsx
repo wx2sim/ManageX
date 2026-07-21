@@ -23,6 +23,8 @@ export default async function MarketStockPage() {
     supabase.from('recipe_ingredients').select('*, raw_material:items(*)')
   ]);
 
+  const { data: { user } } = await supabase.auth.getUser();
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <MarketStockClient 
@@ -32,6 +34,7 @@ export default async function MarketStockPage() {
         marketInputs={marketInputs || []} 
         recipes={recipes || []}
         recipeIngredients={recipeIngredients || []}
+        profileId={user?.id || ''}
       />
     </div>
   );

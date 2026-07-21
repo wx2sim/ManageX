@@ -1,7 +1,7 @@
 'use client';
 
 import { useOverlayTransition } from '@/lib/context/OverlayContext';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Item, ServiceCategory, ServiceSubcategory, MarketInput, Recipe, RecipeIngredient } from '@/lib/types';
@@ -12,6 +12,7 @@ import { useTranslation } from '@/lib/i18n/useTranslation';
 import ItemCard from '@/components/service/ItemCard';
 import { uploadProductImage } from '@/lib/cloudinary';
 import BarcodeScanner from '@/components/stock/BarcodeScanner';
+import { createClient } from '@/lib/supabase/client';
 
 interface MarketStockClientProps {
   items: Item[];
@@ -22,6 +23,7 @@ interface MarketStockClientProps {
   recipeIngredients: RecipeIngredient[];
   isModal?: boolean;
   onSuccessModal?: () => void;
+  profileId?: string;
 }
 
 const PREDEFINED_ICONS = [
@@ -36,7 +38,11 @@ const PREDEFINED_ICONS = [
 
 const UNITS = ['unit', 'piece', 'g', 'kg', 'ml', 'l'];
 
-export default function MarketStockClient({ items, categories, subcategories, marketInputs, recipes, recipeIngredients, isModal, onSuccessModal }: MarketStockClientProps) {
+export default function MarketStockClient({ items, categories, subcategories, marketInputs, recipes, recipeIngredients, isModal, onSuccessModal, profileId }: MarketStockClientProps) {
+  // Phone Realtime Scanner State
+  const [phoneScannerActive, setPhoneScannerActive] = useState(false);
+  const [pulseScanner, setPulseScanner] = useState(false);
+  const channelRef = useRef<any>(null);
   const [isInputModalOpen, setIsInputModalOpen] = useState(false);
   const [isRecipesModalOpen, setIsRecipesModalOpen] = useState(false);
   const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
@@ -140,7 +146,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
   const finishedProducts = useMemo(() => items.filter(i => i.item_type === 'finished' || !i.item_type).filter(i => i.is_active !== false), [items]);
 
-  const processBarcode = (code: string) => {
+  const processBarcode = useCallback((code: string) => {
     setIsScannerModalOpen(false);
     
     const cleanCode = code.trim();
@@ -166,7 +172,39 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       setSuccessMessage(t('market.scanner.newItem') || 'New barcode detected. Please add product details.');
       setTimeout(() => setSuccessMessage(null), 3000);
     }
-  };
+  }, [items, t]);
+
+  useEffect(() => {
+    if (!profileId || isModal) return;
+
+    const supabase = createClient();
+    const channel = supabase.channel(`scanner-${profileId}`);
+    channelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'barcode_scanned' }, ({ payload }) => {
+        if (payload?.code) {
+          setPulseScanner(true);
+          setTimeout(() => setPulseScanner(false), 1000);
+          processBarcode(payload.code);
+        }
+      })
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const count = Object.keys(state).length;
+        setPhoneScannerActive(count > 1);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ online_at: new Date().toISOString(), type: 'laptop' });
+        }
+      });
+
+    return () => {
+      channel.unsubscribe();
+      channelRef.current = null;
+    };
+  }, [profileId, isModal, processBarcode]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLocalCategories(categories); }, [categories]);
@@ -257,6 +295,17 @@ export default function MarketStockClient({ items, categories, subcategories, ma
       if (res?.error) {
         setError(tError(res.error));
       } else {
+        // Broadcast validation back to phone
+        if (profileId && channelRef.current) {
+          const resolvedName = isNewItem ? newItemName : (items.find(i => i.id === selectedItemId)?.name || 'Produit');
+          const resolvedBarcode = isNewItem ? newItemBarcode : (items.find(i => i.id === selectedItemId)?.barcode || '');
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'scan_validated',
+            payload: { code: resolvedBarcode, product_name: resolvedName }
+          });
+        }
+
         if (newItemCloudinaryUrl && newItemCloudinaryUrl.startsWith('blob:')) {
           URL.revokeObjectURL(newItemCloudinaryUrl);
         }
@@ -476,12 +525,22 @@ export default function MarketStockClient({ items, categories, subcategories, ma
     <div className={`space-y-6 ${isModal ? '' : 'animate-in slide-in-from-bottom-4 duration-500'}`}>
 
       {!isModal && (
-        <div>
-          <p className="text-xs uppercase tracking-[0.35em] text-emerald-600 font-bold font-sans">{t('market.header.subtitle') || 'Inventory & Purchases'}</p>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-950 mt-1">{t('market.header.title') || 'Market Stock'}</h1>
-          <p className="text-xs text-zinc-500 mt-1">
-            {t('market.header.desc') || 'Log wholesale grocery purchases, track inventory costs, and manage house supplies.'}
-          </p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-emerald-600 font-bold font-sans">{t('market.header.subtitle') || 'Inventory & Purchases'}</p>
+            <h1 className="text-3xl font-bold tracking-tight text-zinc-950 mt-1">{t('market.header.title') || 'Market Stock'}</h1>
+            <p className="text-xs text-zinc-500 mt-1">
+              {t('market.header.desc') || 'Log wholesale grocery purchases, track inventory costs, and manage house supplies.'}
+            </p>
+          </div>
+          {phoneScannerActive && (
+            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-emerald-50 rounded-2xl border border-emerald-200/80 self-start md:self-center shadow-sm animate-in fade-in duration-300">
+              <span className={`w-3.5 h-3.5 rounded-full ${pulseScanner ? 'bg-emerald-500 scale-125 ring-4 ring-emerald-200' : 'bg-emerald-600'} transition-all duration-300 relative flex`}>
+                {pulseScanner && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+              </span>
+              <span className="text-xs font-bold text-emerald-800">📱 Scanner téléphone actif</span>
+            </div>
+          )}
         </div>
       )}
 

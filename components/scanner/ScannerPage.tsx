@@ -7,11 +7,13 @@ import { Item, ServiceCategory, ServiceSubcategory } from '@/lib/types';
 import { addMarketInput } from '@/actions/market_logic';
 import { uploadProductImage } from '@/lib/cloudinary';
 import { formatDZD } from '@/lib/utils/formatters';
+import { createClient } from '@/lib/supabase/client';
 
 interface ScannerPageProps {
   items: Item[];
   categories: ServiceCategory[];
   subcategories: ServiceSubcategory[];
+  profileId?: string;
 }
 
 type SheetState = 'hidden' | 'found' | 'new';
@@ -23,7 +25,7 @@ const PREDEFINED_ICONS = [
 
 const UNITS = ['unit', 'piece', 'g', 'kg', 'ml', 'l'];
 
-export default function ScannerPage({ items, categories, subcategories }: ScannerPageProps) {
+export default function ScannerPage({ items, categories, subcategories, profileId }: ScannerPageProps) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
@@ -31,10 +33,17 @@ export default function ScannerPage({ items, categories, subcategories }: Scanne
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Camera state
-  const [mode, setMode] = useState<'camera' | 'usb'>('camera');
+  const [mode, setMode] = useState<'camera' | 'usb' | 'phone'>('camera');
   const [camError, setCamError] = useState<string | null>(null);
   const [frameColor, setFrameColor] = useState<'white' | 'green'>('white');
   const [cameraReady, setCameraReady] = useState(false);
+
+  // Sync state
+  const channelRef = useRef<any>(null);
+  const [otherDevicesCount, setOtherDevicesCount] = useState(0);
+  const [totalScannedCount, setTotalScannedCount] = useState(0);
+  const [lastScannedStatus, setLastScannedStatus] = useState<{ code: string; ts: number; validated: boolean; productName?: string } | null>(null);
+  const [phoneSuccessMsg, setPhoneSuccessMsg] = useState<string | null>(null);
 
   // Sheet state
   const [sheetState, setSheetState] = useState<SheetState>('hidden');
@@ -72,6 +81,19 @@ export default function ScannerPage({ items, categories, subcategories }: Scanne
     setFrameColor('green');
     setTimeout(() => setFrameColor('white'), 800);
 
+    if (mode === 'phone') {
+      if (channelRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'barcode_scanned',
+          payload: { code, scanned_at: Date.now() }
+        });
+      }
+      setTotalScannedCount(c => c + 1);
+      setLastScannedStatus({ code, ts: Date.now(), validated: false });
+      return;
+    }
+
     setScannedCode(code);
     setError(null);
 
@@ -102,11 +124,11 @@ export default function ScannerPage({ items, categories, subcategories }: Scanne
       setNewImagePreview(null);
       setSheetState('new');
     }
-  }, [items]);
+  }, [items, mode]);
 
   // --- ZXING CAMERA ---
   useEffect(() => {
-    if (mode !== 'camera') return;
+    if (mode !== 'camera' && mode !== 'phone') return;
 
     let isMounted = true;
     const codeReader = new BrowserMultiFormatReader();
@@ -152,6 +174,50 @@ export default function ScannerPage({ items, categories, subcategories }: Scanne
     };
   }, [mode, processBarcode]);
 
+  useEffect(() => {
+    if (!profileId) return;
+
+    const supabase = createClient();
+    const channel = supabase.channel(`scanner-${profileId}`);
+    channelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'barcode_scanned' }, ({ payload }) => {
+        // Laptop receiver mode: process barcode from phone
+        if (mode !== 'phone' && payload?.code) {
+          processBarcode(payload.code);
+        }
+      })
+      .on('broadcast', { event: 'scan_validated' }, ({ payload }) => {
+        // Phone sender mode: receive validation success
+        if (mode === 'phone') {
+          setLastScannedStatus(prev => {
+            if (prev && prev.code === payload?.code) {
+              return { ...prev, validated: true, productName: payload?.product_name };
+            }
+            return prev;
+          });
+          setPhoneSuccessMsg(`Validé: ${payload?.product_name || payload?.code}`);
+          setTimeout(() => setPhoneSuccessMsg(null), 1500);
+        }
+      })
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const count = Object.keys(state).length;
+        setOtherDevicesCount(Math.max(0, count - 1));
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ online_at: new Date().toISOString(), type: mode });
+        }
+      });
+
+    return () => {
+      channel.unsubscribe();
+      channelRef.current = null;
+    };
+  }, [profileId, mode, processBarcode]);
+
   // USB gun mode
   useEffect(() => {
     if (mode === 'usb') inputRef.current?.focus();
@@ -187,6 +253,13 @@ export default function ScannerPage({ items, categories, subcategories }: Scanne
       if (res?.error) {
         setError(res.error);
       } else {
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'scan_validated',
+            payload: { code: scannedCode, product_name: foundItem.name }
+          });
+        }
         setSuccessMsg('✅ Stock mis à jour !');
         setTimeout(() => setSuccessMsg(null), 2500);
         dismissSheet();
@@ -226,6 +299,13 @@ export default function ScannerPage({ items, categories, subcategories }: Scanne
       if (res?.error) {
         setError(res.error);
       } else {
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'scan_validated',
+            payload: { code: scannedCode, product_name: newName.trim() }
+          });
+        }
         setSuccessMsg(`✅ "${newName}" ajouté au stock !`);
         setTimeout(() => setSuccessMsg(null), 2500);
         dismissSheet();
@@ -235,7 +315,7 @@ export default function ScannerPage({ items, categories, subcategories }: Scanne
 
   const filteredSubcats = subcategories.filter(s => s.category_id === newCategoryId);
 
-  const sheetOpen = sheetState !== 'hidden';
+  const sheetOpen = mode !== 'phone' && sheetState !== 'hidden';
 
   return (
     <div className="fixed inset-0 flex flex-col bg-black select-none">
@@ -265,13 +345,19 @@ export default function ScannerPage({ items, categories, subcategories }: Scanne
           >
             🔫 Scanner USB
           </button>
+          <button
+            onClick={() => setMode('phone')}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${mode === 'phone' ? 'bg-white text-zinc-900' : 'text-white/70 hover:text-white'}`}
+          >
+            📱 Téléphone
+          </button>
         </div>
 
         {/* Video element — always in DOM so ZXing can attach */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <video
           ref={videoRef}
-          className={`absolute inset-0 w-full h-full object-cover ${mode === 'camera' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          className={`absolute inset-0 w-full h-full object-cover ${(mode === 'camera' || mode === 'phone') ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
           autoPlay
           playsInline
           muted
@@ -298,7 +384,7 @@ export default function ScannerPage({ items, categories, subcategories }: Scanne
         )}
 
         {/* Camera error */}
-        {mode === 'camera' && camError && (
+        {(mode === 'camera' || mode === 'phone') && camError && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 p-6 text-center">
             <div className="text-5xl mb-4">🔒</div>
             <p className="text-white font-bold text-base mb-2">Caméra inaccessible</p>
@@ -307,7 +393,7 @@ export default function ScannerPage({ items, categories, subcategories }: Scanne
         )}
 
         {/* Scanning frame overlay */}
-        {mode === 'camera' && !camError && (
+        {(mode === 'camera' || mode === 'phone') && !camError && (
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <div
               className="relative"
@@ -358,10 +444,59 @@ export default function ScannerPage({ items, categories, subcategories }: Scanne
           </div>
         )}
 
+        {/* Phone sync overlay status card */}
+        {mode === 'phone' && (
+          <div className="absolute bottom-10 left-4 right-4 bg-zinc-950/80 backdrop-blur-md rounded-3xl p-5 border border-zinc-800 text-white flex flex-col gap-4 max-w-sm mx-auto shadow-2xl animate-in slide-in-from-bottom-6 duration-300 pointer-events-auto">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📱</span>
+                <div>
+                  <h3 className="font-bold text-sm tracking-wide text-zinc-100 uppercase">Mode Téléphone</h3>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">Appareil de scan uniquement</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+                <span className={`w-2 h-2 rounded-full ${otherDevicesCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                <span className="text-[10px] font-bold text-zinc-200">
+                  {otherDevicesCount > 0 ? `Connecté — ${otherDevicesCount} reçu(s)` : 'Aucun appareil connecté'}
+                </span>
+              </div>
+            </div>
+
+            {lastScannedStatus ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Dernier scan</p>
+                  <div className="flex items-center justify-between mt-1 bg-zinc-900/60 p-3 rounded-xl border border-zinc-800/80">
+                    <span className="font-mono text-sm text-zinc-200">{lastScannedStatus.code}</span>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${lastScannedStatus.validated ? 'bg-emerald-500/25 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/25 text-amber-400 border border-amber-500/30'}`}>
+                      {lastScannedStatus.validated ? '✅ Validé' : '⏳ En attente'}
+                    </span>
+                  </div>
+                </div>
+                {lastScannedStatus.productName && (
+                  <p className="text-xs font-bold text-emerald-400 animate-pulse">
+                    Produit: {lastScannedStatus.productName}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-4 bg-zinc-900/40 rounded-2xl border border-dashed border-zinc-800">
+                <p className="text-xs text-zinc-400">Pointez la caméra pour commencer à envoyer</p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between text-xs text-zinc-400 bg-zinc-900/30 p-2.5 rounded-xl">
+              <span>Total scannés:</span>
+              <span className="font-bold text-zinc-200 bg-zinc-800 px-2 py-0.5 rounded-md">{totalScannedCount}</span>
+            </div>
+          </div>
+        )}
+
         {/* Success toast */}
-        {successMsg && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 bg-emerald-600 text-white text-sm font-bold px-6 py-3 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
-            {successMsg}
+        {(successMsg || phoneSuccessMsg) && (
+          <div className={`absolute left-1/2 -translate-x-1/2 z-30 bg-emerald-600 text-white text-sm font-bold px-6 py-3 rounded-2xl shadow-2xl animate-in fade-in duration-300 ${mode === 'phone' ? 'top-20 slide-in-from-top-4' : 'bottom-4 slide-in-from-bottom-4'}`}>
+            {successMsg || phoneSuccessMsg}
           </div>
         )}
       </div>

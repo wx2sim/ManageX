@@ -28,6 +28,7 @@ export default async function ScannerRoute() {
       items={items || []}
       categories={categories || []}
       subcategories={subcategories || []}
+      profileId={user.id}
     />
   );
 }
