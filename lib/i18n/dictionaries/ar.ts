@@ -178,6 +178,7 @@ export const ar: typeof fr = {
     templateNamePlaceholder: 'مثل: الإيجار الشهري، حصة الواي فاي',
     defaultAmount: 'المبلغ الافتراضي (دج) *',
     defaultAmountPlaceholder: 'مثل: 85000',
+    startDate: 'تاريخ بدء الخصم *',
     savingTemplate: 'جاري حفظ القالب...',
     saveTemplate: 'حفظ القالب',
     activeTemplates: 'القوالب النشطة',

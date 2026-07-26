@@ -21,6 +21,7 @@ export default function FixedPaymentForm({ girlId, templates }: FixedPaymentForm
   const router = useRouter();
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [recurrence, setRecurrence] = useState(''); // 'manual', '7', '30', etc.
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -42,7 +43,7 @@ export default function FixedPaymentForm({ girlId, templates }: FixedPaymentForm
 
     startTransition(async () => {
       const recurrenceDays = recurrence && recurrence !== 'manual' ? parseInt(recurrence) : null;
-      const res = await saveFixedPaymentTemplate(girlId, name, parsedAmount, recurrenceDays);
+      const res = await saveFixedPaymentTemplate(girlId, name, parsedAmount, recurrenceDays, startDate);
       if (res?.error) {
         setError(tError(res.error));
       } else {
@@ -50,6 +51,7 @@ export default function FixedPaymentForm({ girlId, templates }: FixedPaymentForm
         setName('');
         setAmount('');
         setRecurrence('');
+        setStartDate(new Date().toISOString().split('T')[0]);
         router.refresh();
       }
     });
@@ -126,25 +128,32 @@ export default function FixedPaymentForm({ girlId, templates }: FixedPaymentForm
               className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-pink-400 focus:outline-none"
             />
           </div>
-          <div className="sm:col-span-2">
+          <div>
             <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-              {t('fixed.recurrence') || 'Recurrence (Auto-charge)'}
+              {t('fixed.startDate') || 'Date de Début du Prélèvement *'}
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              required
+              className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-900 transition focus:border-pink-400 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
+              {t('fixed.recurrence') || 'Récurrence (Prélèvement Auto)'}
             </label>
             <select
               value={recurrence}
               onChange={(e) => setRecurrence(e.target.value)}
               className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-900 transition focus:border-pink-400 focus:outline-none"
             >
-              <option value="manual">{t('fixed.manualOnly') || 'manual'}</option>
-              <option value="1">{t('fixed.days1') || '1'}</option>
-              <option value="2">{t('fixed.days2') || '2'}</option>
-              <option value="3">{t('fixed.days3') || '3'}</option>
-              <option value="4">{t('fixed.days4') || '4'}</option>
-              <option value="5">{t('fixed.days5') || '5'}</option>
-              <option value="6">{t('fixed.days6') || '6'}</option>
-              <option value="7">{t('fixed.weekly') || 'WEEK (7 days)'}</option>
-              <option value="15">{t('fixed.days15') || '15 DAYS'}</option>
-              <option value="30">{t('fixed.monthly') || 'Monthly starting from the day the template is excuted'}</option>
+              <option value="manual">{t('fixed.manualOnly') || 'Manuel'}</option>
+              <option value="1">{t('fixed.days1') || 'Tous les jours (1j)'}</option>
+              <option value="7">{t('fixed.weekly') || 'Chaque semaine (7j)'}</option>
+              <option value="15">{t('fixed.days15') || 'Chaque 15 jours'}</option>
+              <option value="30">{t('fixed.monthly') || 'Chaque mois (30j)'}</option>
             </select>
           </div>
         </div>

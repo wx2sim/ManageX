@@ -36,17 +36,36 @@ export async function saveFixedPaymentTemplate(
   girlId: string, 
   name: string, 
   defaultAmount: number,
-  recurrenceDays: number | null = null
+  recurrenceDays: number | null = null,
+  startDateStr?: string | null
 ) {
   try {
     if (!name || defaultAmount <= 0) return { error: 'Name and valid default amount are required' };
 
     const supabase = await createClient();
     
-    let nextExecutionDate = null;
-    let lastExecutedAt = null;
+    let nextExecutionDate: string | null = null;
+    let lastExecutedAt: string | null = null;
     
-    if (recurrenceDays && recurrenceDays > 0) {
+    if (startDateStr) {
+      const start = new Date(startDateStr);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      nextExecutionDate = start.toISOString();
+
+      if (start <= today) {
+        lastExecutedAt = new Date().toISOString();
+        if (recurrenceDays && recurrenceDays > 0) {
+          const nextDate = new Date(start);
+          nextDate.setDate(nextDate.getDate() + recurrenceDays);
+          while (nextDate <= today) {
+            nextDate.setDate(nextDate.getDate() + recurrenceDays);
+          }
+          nextExecutionDate = nextDate.toISOString();
+        }
+      }
+    } else if (recurrenceDays && recurrenceDays > 0) {
       const now = new Date();
       lastExecutedAt = now.toISOString();
       
@@ -66,7 +85,15 @@ export async function saveFixedPaymentTemplate(
 
     if (error) return { error: error.message };
 
-    if (recurrenceDays && recurrenceDays > 0) {
+    const startObj = startDateStr ? new Date(startDateStr) : new Date();
+    const todayObj = new Date();
+    todayObj.setHours(0, 0, 0, 0);
+
+    if (startDateStr) {
+      if (startObj <= todayObj) {
+        await applyFixedPayment(girlId, defaultAmount, name, `${name} (Charge du ${startDateStr})`);
+      }
+    } else if (recurrenceDays && recurrenceDays > 0) {
       await applyFixedPayment(girlId, defaultAmount, name, `${name} (Auto-recurring start)`);
     }
 

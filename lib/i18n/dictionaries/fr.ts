@@ -176,6 +176,7 @@ export const fr = {
     templateNamePlaceholder: 'ex: Loyer mensuel, Part Wi-Fi',
     defaultAmount: 'Montant par Défaut (DZD) *',
     defaultAmountPlaceholder: 'ex: 85000',
+    startDate: 'Date de Début du Prélèvement *',
     savingTemplate: 'Enregistrement du modèle...',
     saveTemplate: 'Enregistrer Modèle',
     activeTemplates: 'Modèles Actifs',
