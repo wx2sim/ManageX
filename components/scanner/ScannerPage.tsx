@@ -565,7 +565,8 @@ export default function ScannerPage({ items, categories, subcategories, profileI
                   >−</button>
                   <input
                     type="number"
-                    min="1"
+                    min="0.001"
+                    step="any"
                     value={restockQty}
                     onChange={e => setRestockQty(e.target.value)}
                     required

@@ -26,15 +26,60 @@ interface MarketStockClientProps {
   profileId?: string;
 }
 
-const PREDEFINED_ICONS = [
-  '💧', '🥤', '🍷', '🍺', '🍼',
-  '🍔', '🍟', '🍕', '🌭', '🥪',
-  '🚬', '💨', '💊', '🩹', '🧴',
-  '💄', '💋', '💅', '💇‍♀️', '👗',
-  '🧻', '🧼', '🧽', '🧹', '🗑️',
-  '🛍️', '📦', '📱', '🔋', '🔌',
-  '🥩', '🧅', '🥔', '🍅', '🥬'
+const EMOJI_CATEGORIES = [
+  {
+    id: 'food',
+    name: 'Nourriture & Boissons',
+    icon: '🍔',
+    emojis: [
+      '🍎', '🍏', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝',
+      '🍅', '🥑', '🍆', '🥔', '🥕', '🌽', '🌶️', '🫑', '🥒', '🥬', '🥦', '🧄', '🧅', '🍄', '🥜', '🌰',
+      '🍞', '🥐', '🥖', '🫓', '🥨', '🥯', '🥞', '🧇', '🧀', '🍖', '🍗', '🥩', '🥓', '🍔', '🍟', '🍕',
+      '🌭', '🥪', '🌮', '🌯', '🥙', '🧆', '🥚', '🍳', '🥘', '🍲', '🥣', '🥗', '🍿', '🍱', '🍘', '🍙',
+      '🍚', '🍛', '🍜', '🍝', '🍠', '🍢', '🍣', '🍤', '🍡', '🥟', '🥠', '🍦', '🍧', '🍨', '🍩', '🍪',
+      '🎂', '🍰', '🧁', '🥧', '🍫', '🍬', '🍭', '🍮', '🍯', '🍼', '🥛', '☕', '🫖', '🍵', '🍾', '🍷',
+      '🍸', '🍹', '🍺', '🍻', '🥂', '🥃', '🥤', '🧋', '🧃', '🧊'
+    ]
+  },
+  {
+    id: 'hygiene',
+    name: 'Hygiène & Soins',
+    icon: '🧼',
+    emojis: [
+      '🧻', '🧼', '🧽', '🧹', '🧺', '🧴', '🪥', '🪒', '💅', '💄', '💋', '💇‍♀️', '💇‍♂️', '💈', '👗', '👔',
+      '👕', '👖', '🥼', '🦺', '🧦', '👟', '👠', '👡', '👢', '👑', '🎒', '👜', '👛', '👓', '🕶️', '💊',
+      '🩹', '🩺', '💉', '🧪', '🩸'
+    ]
+  },
+  {
+    id: 'household',
+    name: 'Maison & Équipement',
+    icon: '📦',
+    emojis: [
+      '🗑️', '📦', '🛍️', '💡', '🕯️', '🔌', '🔋', '📱', '💻', '🖥️', '🛏️', '<ctrl42>', '🚪', '🪟', '🪑', '🚽',
+      '🪠', '🚿', '🛁', '🪞', '🔑', '🔒', '🏷️', '📜', '✂️', '🖊️', '📌', '📁', '💼', '🛒'
+    ]
+  },
+  {
+    id: 'tobacco',
+    name: 'Tabac & Loisirs',
+    icon: '🚬',
+    emojis: [
+      '🚬', '💨', '⚡', '🔥', '💥', '✨', '🎈', '🎉', '🎁', '🎯', '🎲', '🎰', '🎮', '🎧', '📻', '📸'
+    ]
+  },
+  {
+    id: 'symbols',
+    name: 'Symboles & Divers',
+    icon: '⭐',
+    emojis: [
+      '⭐', '🌟', '✨', '❤️', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💯', '✅', '❌', '⚠️', '🎉', '🏆',
+      '🏷️', '🏪', '🏭', '🚚', '👍', '👌', '👏', '🤝', '😊', '😎'
+    ]
+  }
 ];
+
+const PREDEFINED_ICONS = Array.from(new Set(EMOJI_CATEGORIES.flatMap(c => c.emojis)));
 
 const UNITS = ['unit', 'piece', 'g', 'kg', 'ml', 'l'];
 
@@ -72,6 +117,12 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
   const [isNewItem, setIsNewItem] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState('');
+  const [itemModalSearchQuery, setItemModalSearchQuery] = useState('');
+  const [productGridSearchQuery, setProductGridSearchQuery] = useState('');
+
+  // Emoji Picker State
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState('food');
+  const [emojiSearchQuery, setEmojiSearchQuery] = useState('');
 
   const [newItemType, setNewItemType] = useState<'raw_material' | 'finished'>('finished');
   const [newItemName, setNewItemName] = useState('');
@@ -337,11 +388,42 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
   const rawMaterials = items.filter(i => i.item_type === 'raw_material');
 
+  const filteredModalRawMaterials = useMemo(() => {
+    if (!itemModalSearchQuery.trim()) return rawMaterials;
+    const q = itemModalSearchQuery.toLowerCase().trim();
+    return rawMaterials.filter(i => i.name.toLowerCase().includes(q) || (i.barcode && i.barcode.toLowerCase().includes(q)));
+  }, [rawMaterials, itemModalSearchQuery]);
+
+  const filteredModalFinishedProducts = useMemo(() => {
+    if (!itemModalSearchQuery.trim()) return finishedProducts;
+    const q = itemModalSearchQuery.toLowerCase().trim();
+    return finishedProducts.filter(i => i.name.toLowerCase().includes(q) || (i.barcode && i.barcode.toLowerCase().includes(q)));
+  }, [finishedProducts, itemModalSearchQuery]);
+
+  const displayedEmojis = useMemo(() => {
+    if (emojiSearchQuery.trim()) {
+      const q = emojiSearchQuery.trim();
+      const all = EMOJI_CATEGORIES.flatMap(c => c.emojis);
+      return Array.from(new Set(all)).filter(e => e.includes(q));
+    }
+    const currentCat = EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory);
+    return currentCat ? currentCat.emojis : EMOJI_CATEGORIES[0].emojis;
+  }, [activeEmojiCategory, emojiSearchQuery]);
+
   const filteredProductsForDisplay = useMemo(() => {
     return finishedProducts.filter(item => {
       // Stock check (original logic was item.stock_quantity > 0)
       const hasStock = item.stock_quantity > 0;
       if (!hasStock) return false;
+
+      // Search query filter
+      if (productGridSearchQuery.trim()) {
+        const q = productGridSearchQuery.toLowerCase().trim();
+        const matchName = item.name.toLowerCase().includes(q);
+        const matchBarcode = item.barcode && item.barcode.toLowerCase().includes(q);
+        const matchAltBarcodes = item.alternate_barcodes && item.alternate_barcodes.some(b => b.toLowerCase().includes(q));
+        if (!matchName && !matchBarcode && !matchAltBarcodes) return false;
+      }
 
       // Category filter
       if (filterCategoryId) {
@@ -356,7 +438,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
       return true;
     });
-  }, [finishedProducts, filterCategoryId, filterSubcategoryId, localSubcats]);
+  }, [finishedProducts, productGridSearchQuery, filterCategoryId, filterSubcategoryId, localSubcats]);
 
   const sortedCategoriesForFilter = useMemo(() => {
     return [...localCategories].sort((a, b) => {
@@ -597,16 +679,37 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
       {/* Available Products Grid */}
       <div className="mb-8 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h2 className="text-xl font-bold text-zinc-900">{t('market.input.existingProduct') || 'Available Products'}</h2>
-          {finishedProducts.filter(item => item.stock_quantity > 0).length > 5 && (
-            <button
-              onClick={() => setShowAllProducts(!showAllProducts)}
-              className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition"
-            >
-              {showAllProducts ? t('common.showLess') || 'Show less' : t('common.loadMore') || 'Load more'}
-            </button>
-          )}
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <input
+                type="text"
+                value={productGridSearchQuery}
+                onChange={(e) => setProductGridSearchQuery(e.target.value)}
+                placeholder={t('common.search') || 'Rechercher un produit...'}
+                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2 pl-9 pr-7 text-sm font-medium text-zinc-800 focus:outline-none focus:border-emerald-500 shadow-sm"
+              />
+              <span className="absolute left-3 top-2.5 text-zinc-400 text-xs">🔍</span>
+              {productGridSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setProductGridSearchQuery('')}
+                  className="absolute right-2.5 top-2.5 text-zinc-400 hover:text-zinc-600 text-xs bg-zinc-100 hover:bg-zinc-200 rounded-full w-4 h-4 flex items-center justify-center font-bold transition"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            {finishedProducts.filter(item => item.stock_quantity > 0).length > 5 && (
+              <button
+                onClick={() => setShowAllProducts(!showAllProducts)}
+                className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition whitespace-nowrap shrink-0"
+              >
+                {showAllProducts ? t('common.showLess') || 'Show less' : t('common.loadMore') || 'Load more'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Category & Subcategory Filter Tabs */}
@@ -706,7 +809,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {filteredProductsForDisplay.slice(0, showAllProducts ? undefined : 5).map((item) => (
+              {filteredProductsForDisplay.slice(0, (showAllProducts || productGridSearchQuery.trim()) ? undefined : 5).map((item) => (
                 <ItemCard
                   key={item.id}
                   item={item}
@@ -802,10 +905,30 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
               <div className="p-5 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-4">
                 {!isNewItem ? (
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
+                  <div className="space-y-3">
+                    <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider">
                       {t('market.input.selectProduct')}
                     </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={itemModalSearchQuery}
+                        onChange={(e) => setItemModalSearchQuery(e.target.value)}
+                        placeholder={t('common.search') || '🔍 Rechercher un produit ou code barre...'}
+                        className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-2.5 pl-10 pr-8 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500 shadow-sm"
+                      />
+                      <span className="absolute left-3.5 top-2.5 text-zinc-400 text-sm">🔍</span>
+                      {itemModalSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setItemModalSearchQuery('')}
+                          className="absolute right-3 top-2.5 text-zinc-400 hover:text-zinc-600 text-xs bg-zinc-100 hover:bg-zinc-200 rounded-full w-5 h-5 flex items-center justify-center font-bold transition"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
                     <select
                       value={selectedItemId}
                       onChange={handleItemSelect}
@@ -814,26 +937,28 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                     >
                       <option value="">{t('market.input.chooseItem')}</option>
 
-                      {rawMaterials.length > 0 && (
+                      {filteredModalRawMaterials.length > 0 && (
                         <optgroup label={t('market.recipes.rawMaterials') || 'RAW MATERIALS'}>
-                          {rawMaterials.map(i => (
+                          {filteredModalRawMaterials.map(i => (
                             <option key={i.id} value={i.id}>{i.name} ({i.stock_quantity} {i.unit})</option>
                           ))}
                         </optgroup>
                       )}
 
-                      {localCategories.map(cat => (
-                        <optgroup key={cat.id} label={cat.name.replace('_', ' ').toUpperCase()}>
-                          {finishedProducts
-                            .filter(i => {
-                              const sub = subcategories.find(s => s.id === i.subcategory_id);
-                              return sub?.category_id === cat.id;
-                            })
-                            .map(i => (
+                      {localCategories.map(cat => {
+                        const catProducts = filteredModalFinishedProducts.filter(i => {
+                          const sub = subcategories.find(s => s.id === i.subcategory_id);
+                          return sub?.category_id === cat.id;
+                        });
+                        if (catProducts.length === 0) return null;
+                        return (
+                          <optgroup key={cat.id} label={cat.name.replace('_', ' ').toUpperCase()}>
+                            {catProducts.map(i => (
                               <option key={i.id} value={i.id}>{i.name} ({t('market.input.inStock')}: {i.stock_quantity})</option>
                             ))}
-                        </optgroup>
-                      ))}
+                          </optgroup>
+                        );
+                      })}
                     </select>
                     {selectedItemId && (
                       <div className="mt-4 p-3 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-4">
@@ -1004,17 +1129,77 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                       </div>
 
                       {newItemOption === 'icon' && (
-                        <div>
-                          <label className="block text-xxs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
-                            {t('market.input.selectIcon') || 'Select Emoji Icon'}
-                          </label>
-                          <div className="grid grid-cols-8 gap-2 bg-white p-3 rounded-xl border border-emerald-200 max-h-32 overflow-y-auto">
-                            {PREDEFINED_ICONS.map(icon => (
+                        <div className="bg-white rounded-2xl border border-emerald-200 p-3 space-y-3 shadow-sm">
+                          {/* Header & Search */}
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
+                              {t('market.input.selectIcon') || 'Sélectionner une icône'}
+                            </label>
+                            <div className="relative flex-1 max-w-[160px]">
+                              <input
+                                type="text"
+                                value={emojiSearchQuery}
+                                onChange={(e) => setEmojiSearchQuery(e.target.value)}
+                                placeholder="Rechercher..."
+                                className="w-full text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1.5 pl-6 focus:outline-none focus:border-emerald-500"
+                              />
+                              <span className="absolute left-2 top-1.5 text-zinc-400 text-xs">🔍</span>
+                              {emojiSearchQuery && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEmojiSearchQuery('')}
+                                  className="absolute right-1.5 top-1.5 text-zinc-400 hover:text-zinc-600 text-xxs bg-zinc-200 rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Messenger / WhatsApp Style Category Tabs */}
+                          {!emojiSearchQuery && (
+                            <div className="flex items-center gap-1 border-b border-zinc-100 pb-2 overflow-x-auto scrollbar-none">
+                              {EMOJI_CATEGORIES.map(cat => {
+                                const isActive = activeEmojiCategory === cat.id;
+                                return (
+                                  <button
+                                    key={cat.id}
+                                    type="button"
+                                    onClick={() => setActiveEmojiCategory(cat.id)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                                      isActive
+                                        ? 'bg-emerald-600 text-white shadow-sm'
+                                        : 'bg-zinc-50 text-zinc-600 hover:bg-zinc-100'
+                                    }`}
+                                    title={cat.name}
+                                  >
+                                    <span>{cat.icon}</span>
+                                    <span className="text-xxs">{cat.name.split(' ')[0]}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Selected Preview Badge */}
+                          <div className="flex items-center gap-3 p-2 bg-emerald-50/80 rounded-xl border border-emerald-100">
+                            <span className="text-3xl">{newItemImage || '🛍️'}</span>
+                            <div>
+                              <p className="text-xs font-bold text-emerald-900">Icône choisie</p>
+                              <p className="text-xxs text-emerald-700">Cliquez sur une icône pour sélectionner</p>
+                            </div>
+                          </div>
+
+                          {/* Emojis Grid Container */}
+                          <div className="grid grid-cols-7 sm:grid-cols-9 gap-1.5 max-h-48 overflow-y-auto p-1 scrollbar-thin">
+                            {displayedEmojis.map(icon => (
                               <button
                                 key={icon}
                                 type="button"
                                 onClick={() => setNewItemImage(icon)}
-                                className={`text-2xl p-1 rounded-lg transition hover:bg-emerald-50 hover:scale-110 ${newItemImage === icon ? 'bg-emerald-100 ring-2 ring-emerald-500 scale-110' : ''}`}
+                                className={`text-2xl p-2 rounded-xl transition-all duration-150 hover:bg-emerald-100 hover:scale-125 flex items-center justify-center ${
+                                  newItemImage === icon ? 'bg-emerald-200 ring-2 ring-emerald-600 scale-110 shadow-sm' : 'bg-zinc-50/80 hover:bg-zinc-100'
+                                }`}
                               >
                                 {icon}
                               </button>
@@ -1103,7 +1288,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                   </label>
                   <input
                     type="number"
-                    min="1"
+                    min="0.001"
+                    step="any"
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
                     required
@@ -1643,7 +1829,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                     type="number"
                     value={editInputQuantity}
                     onChange={e => setEditInputQuantity(e.target.value)}
-                    min="1"
+                    min="0.001"
+                    step="any"
                     required
                     className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm transition focus:border-emerald-400 focus:outline-none"
                   />
@@ -1655,6 +1842,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                     value={editInputCurrentStock}
                     onChange={e => setEditInputCurrentStock(e.target.value)}
                     min="0"
+                    step="any"
                     className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm transition focus:border-amber-400 focus:outline-none font-bold"
                   />
                 </div>
@@ -2399,6 +2587,8 @@ function ProduceModal({ recipeId, recipe, ingredients, rawMaterials, categories,
 
 // Ledger and Category management tabs (preserved functionality)
 function LedgerTab({ marketInputs, items, monthFilter, setMonthFilter, t, handleDeleteInput, handleEditInputClick, onProductClick }: any) {
+  const [ledgerSearchQuery, setLedgerSearchQuery] = useState('');
+
   // Calculate FIFO remaining stock per batch dynamically
   const batchRemainingStock = useMemo(() => {
     const grouped: Record<string, any[]> = marketInputs.reduce((acc: any, input: any) => {
@@ -2434,9 +2624,18 @@ function LedgerTab({ marketInputs, items, monthFilter, setMonthFilter, t, handle
   }, [marketInputs, items]);
 
   const filteredLedger = useMemo(() => {
-    const list = !monthFilter
+    let list = !monthFilter
       ? [...marketInputs]
       : marketInputs.filter((m: any) => m.shopping_date.startsWith(monthFilter));
+
+    if (ledgerSearchQuery.trim()) {
+      const q = ledgerSearchQuery.toLowerCase().trim();
+      list = list.filter((m: any) => {
+        const itemName = m.items?.name?.toLowerCase() || '';
+        const dateStr = m.shopping_date?.toLowerCase() || '';
+        return itemName.includes(q) || dateStr.includes(q);
+      });
+    }
 
     // Sort: items with stock > 0 first, then stock <= 0
     return list.sort((a: any, b: any) => {
@@ -2449,7 +2648,7 @@ function LedgerTab({ marketInputs, items, monthFilter, setMonthFilter, t, handle
       // Secondary sorting: date (newest first)
       return new Date(b.shopping_date).getTime() - new Date(a.shopping_date).getTime();
     });
-  }, [marketInputs, monthFilter, batchRemainingStock]);
+  }, [marketInputs, monthFilter, ledgerSearchQuery, batchRemainingStock]);
 
   const activeItems = useMemo(() => items.filter((i: any) => i.is_active !== false), [items]);
 
@@ -2457,12 +2656,33 @@ function LedgerTab({ marketInputs, items, monthFilter, setMonthFilter, t, handle
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <h2 className="text-xl font-bold text-zinc-900">{t('market.ledger.title')}</h2>
-        <input
-          type="month"
-          value={monthFilter}
-          onChange={(e) => setMonthFilter(e.target.value)}
-          className="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 focus:outline-none focus:border-emerald-500 shadow-sm"
-        />
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              value={ledgerSearchQuery}
+              onChange={(e) => setLedgerSearchQuery(e.target.value)}
+              placeholder="Rechercher un produit..."
+              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2 pl-9 text-sm font-medium text-zinc-800 focus:outline-none focus:border-emerald-500 shadow-sm"
+            />
+            <span className="absolute left-3 top-2.5 text-zinc-400 text-xs">🔍</span>
+            {ledgerSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setLedgerSearchQuery('')}
+                className="absolute right-2.5 top-2.5 text-zinc-400 hover:text-zinc-600 text-xs bg-zinc-100 hover:bg-zinc-200 rounded-full w-4 h-4 flex items-center justify-center font-bold transition"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <input
+            type="month"
+            value={monthFilter}
+            onChange={(e) => setMonthFilter(e.target.value)}
+            className="w-full sm:w-auto rounded-xl border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 focus:outline-none focus:border-emerald-500 shadow-sm"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
