@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { GirlBalance } from '@/lib/types';
-import { formatDZD } from '@/lib/utils/formatters';
+import { formatDZD, formatDate } from '@/lib/utils/formatters';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface ProfileHeaderProps {
@@ -90,7 +90,7 @@ export default function ProfileHeader({
                 </span>
               )}
             </div>
-            <p className="text-sm text-zinc-500">{t('profile.managingSince').replace('{date}', new Date(girl.start_date).toLocaleDateString())}</p>
+            <p className="text-sm text-zinc-500">{t('profile.managingSince').replace('{date}', formatDate(girl.start_date))}</p>
           </div>
         </div>
 
