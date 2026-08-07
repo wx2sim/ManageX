@@ -197,6 +197,7 @@ export async function updateItem(
     subcategory_id?: string | null;
     barcode?: string | null;
     alternate_barcodes?: string[];
+    unit?: string;
   }
 ) {
   try {
@@ -211,6 +212,10 @@ export async function updateItem(
       stock_quantity: data.stock_quantity,
       min_stock_alert: data.min_stock_alert !== undefined ? data.min_stock_alert : null
     };
+
+    if (data.unit !== undefined) {
+      updateData.unit = data.unit;
+    }
 
     if (data.image_url !== undefined) {
       updateData.image_url = data.image_url;
@@ -345,6 +350,7 @@ export async function updateMarketInput(inputId: string, data: {
   unit_sell_price: number;
   shopping_date: string;
   current_stock?: number;
+  unit?: string;
 }) {
   try {
     const supabase = await createClient();
@@ -379,13 +385,18 @@ export async function updateMarketInput(inputId: string, data: {
         newStock = Math.max(0, newStock + stockDiff);
       }
 
+      const itemUpdate: any = {
+        stock_quantity: newStock,
+        cost_price: data.unit_buy_price,
+        sell_price: data.unit_sell_price
+      };
+      if (data.unit) {
+        itemUpdate.unit = data.unit;
+      }
+
       await supabase
         .from('items')
-        .update({
-          stock_quantity: newStock,
-          cost_price: data.unit_buy_price,
-          sell_price: data.unit_sell_price
-        })
+        .update(itemUpdate)
         .eq('id', input.item_id);
     }
 

@@ -115,6 +115,8 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const [editInputSellPrice, setEditInputSellPrice] = useState('');
   const [editInputDate, setEditInputDate] = useState('');
   const [editInputCurrentStock, setEditInputCurrentStock] = useState('');
+  const [editInputUnit, setEditInputUnit] = useState('unit');
+  const [editInputBuyPriceMode, setEditInputBuyPriceMode] = useState<'unit' | 'total'>('total');
 
   const [isNewItem, setIsNewItem] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState('');
@@ -135,6 +137,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
 
   const [quantity, setQuantity] = useState('');
   const [buyPrice, setBuyPrice] = useState('');
+  const [buyPriceMode, setBuyPriceMode] = useState<'unit' | 'total'>('total');
   const [sellPrice, setSellPrice] = useState('');
   const [shoppingDate, setShoppingDate] = useState(() => new Date().toISOString().split('T')[0]);
 
@@ -147,6 +150,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [selectedProductCard, setSelectedProductCard] = useState<Item | null>(null);
   const [editItemName, setEditItemName] = useState('');
+  const [editItemUnit, setEditItemUnit] = useState('unit');
   const [editCostPrice, setEditCostPrice] = useState('');
   const [editSellPrice, setEditSellPrice] = useState('');
   const [editStockQty, setEditStockQty] = useState('');
@@ -338,7 +342,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
         min_stock_alert: (isNewItem && newItemMinStockAlert) ? Number(newItemMinStockAlert) : null,
         barcode: (isNewItem && newItemBarcode) ? newItemBarcode.trim() : undefined,
         quantity: Number(quantity),
-        unit_buy_price: Number(buyPrice),
+        unit_buy_price: buyPriceMode === 'total' && Number(quantity) > 0 ? Number(buyPrice) / Number(quantity) : Number(buyPrice),
         unit_sell_price: Number(sellPrice),
         shopping_date: new Date(shoppingDate).toISOString(),
       };
@@ -472,6 +476,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const handleEditClick = (item: Item) => {
     setEditingItem(item);
     setEditItemName(item.name);
+    setEditItemUnit(item.unit || 'unit');
     setEditCostPrice(item.cost_price.toString());
     setEditSellPrice(item.sell_price.toString());
     setEditStockQty(item.stock_quantity.toString());
@@ -507,6 +512,7 @@ export default function MarketStockClient({ items, categories, subcategories, ma
     startEditTransition(async () => {
       const updatedData: any = {
         name: editItemName,
+        unit: editItemUnit,
         cost_price: Number(editCostPrice),
         sell_price: Number(editSellPrice),
         stock_quantity: Number(editStockQty),
@@ -572,16 +578,20 @@ export default function MarketStockClient({ items, categories, subcategories, ma
   const handleEditInputClick = (input: any) => {
     setEditingInput(input);
     setEditInputQuantity(input.quantity.toString());
-    setEditInputBuyPrice(input.unit_buy_price.toString());
+    const totalBuyPrice = input.total_worth || (input.quantity * input.unit_buy_price);
+    setEditInputBuyPrice(totalBuyPrice.toString());
+    setEditInputBuyPriceMode('total');
     setEditInputSellPrice(input.unit_sell_price.toString());
     setEditInputDate(input.shopping_date.split('T')[0]);
 
-    // Find the current item to populate the current stock
+    // Find the current item to populate the current stock and unit
     const item = items.find(i => i.id === input.item_id);
     if (item) {
       setEditInputCurrentStock(item.stock_quantity.toString());
+      setEditInputUnit(item.unit || 'unit');
     } else {
       setEditInputCurrentStock('');
+      setEditInputUnit('unit');
     }
   };
 
@@ -590,12 +600,17 @@ export default function MarketStockClient({ items, categories, subcategories, ma
     if (!editingInput) return;
     setError(null);
     startTransition(async () => {
+      const calculatedBuyPrice = editInputBuyPriceMode === 'total' && Number(editInputQuantity) > 0
+        ? Number(editInputBuyPrice) / Number(editInputQuantity)
+        : Number(editInputBuyPrice);
+
       const res = await updateMarketInput(editingInput.id, {
         quantity: Number(editInputQuantity),
-        unit_buy_price: Number(editInputBuyPrice),
+        unit_buy_price: calculatedBuyPrice,
         unit_sell_price: Number(editInputSellPrice),
         shopping_date: editInputDate,
-        current_stock: editInputCurrentStock !== '' ? Number(editInputCurrentStock) : undefined
+        current_stock: editInputCurrentStock !== '' ? Number(editInputCurrentStock) : undefined,
+        unit: editInputUnit
       });
       if (res?.error) setError(tError(res.error));
       else setEditingInput(null);
@@ -1299,9 +1314,27 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                   />
                 </div>
                 <div className="col-span-2 md:col-span-1">
-                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
-                    {t('market.input.buyPrice')}
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider">
+                      {buyPriceMode === 'total' ? 'Prix Total Achat' : t('market.input.buyPrice')}
+                    </label>
+                    <div className="flex bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 text-[10px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setBuyPriceMode('total')}
+                        className={`px-2 py-0.5 rounded-md transition ${buyPriceMode === 'total' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'}`}
+                      >
+                        Total
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBuyPriceMode('unit')}
+                        className={`px-2 py-0.5 rounded-md transition ${buyPriceMode === 'unit' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'}`}
+                      >
+                        / Unité
+                      </button>
+                    </div>
+                  </div>
                   <input
                     type="number"
                     min="0"
@@ -1309,9 +1342,18 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                     value={buyPrice}
                     onChange={(e) => setBuyPrice(e.target.value)}
                     required
-                    placeholder="DZD"
+                    placeholder={buyPriceMode === 'total' ? 'Prix Total (DZD)' : 'Prix Unitaire (DZD)'}
                     className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
                   />
+                  {buyPriceMode === 'total' ? (
+                    <p className="text-[11px] text-emerald-700 font-semibold mt-1">
+                      Soit {(Number(quantity) > 0 && Number(buyPrice) > 0 ? (Number(buyPrice) / Number(quantity)).toLocaleString(undefined, { maximumFractionDigits: 4 }) : 0)} DZD / {isNewItem ? newItemUnit : (items.find(i => i.id === selectedItemId)?.unit || 'u')}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-zinc-500 font-medium mt-1">
+                      Total Achat: <span className="font-bold text-zinc-900">{(Number(quantity) * Number(buyPrice)).toLocaleString()} DZD</span>
+                    </p>
+                  )}
                 </div>
                 <div className="col-span-2 md:col-span-1">
                   <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
@@ -1465,9 +1507,27 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                     <input type="number" value={editSellPrice} onChange={e => setEditSellPrice(e.target.value)} required className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none" />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">{t('market.input.quantity') || 'Quantity in Stock'}</label>
-                  <input type="number" value={editStockQty} onChange={e => setEditStockQty(e.target.value)} required className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">{t('market.input.quantity') || 'Quantity in Stock'}</label>
+                    <input type="number" value={editStockQty} onChange={e => setEditStockQty(e.target.value)} required className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                      {t('market.recipes.unitLabel') || 'Unité de mesure'}
+                    </label>
+                    <select
+                      value={editItemUnit}
+                      onChange={(e) => setEditItemUnit(e.target.value)}
+                      className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
+                    >
+                      {UNITS.map((u) => (
+                        <option key={u} value={u}>
+                          {u}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Category & Subcategory Select */}
@@ -1849,7 +1909,43 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-zinc-700 uppercase mb-1">{t('market.input.buyPrice') || 'Buy Price'} (/u)</label>
+                <label className="block text-xs font-bold text-zinc-700 uppercase mb-1">
+                  {t('market.recipes.unitLabel') || 'Unité de mesure'}
+                </label>
+                <select
+                  value={editInputUnit}
+                  onChange={e => setEditInputUnit(e.target.value)}
+                  className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm transition focus:border-emerald-400 focus:outline-none"
+                >
+                  {UNITS.map(u => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-zinc-700 uppercase">
+                    {editInputBuyPriceMode === 'total' ? "Prix Total d'Achat" : t('market.input.buyPrice')}
+                  </label>
+                  <div className="flex bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 text-[10px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setEditInputBuyPriceMode('total')}
+                      className={`px-2 py-0.5 rounded-md transition ${editInputBuyPriceMode === 'total' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'}`}
+                    >
+                      Total
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditInputBuyPriceMode('unit')}
+                      className={`px-2 py-0.5 rounded-md transition ${editInputBuyPriceMode === 'unit' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'}`}
+                    >
+                      / Unité
+                    </button>
+                  </div>
+                </div>
                 <input
                   type="number"
                   value={editInputBuyPrice}
@@ -1857,8 +1953,18 @@ export default function MarketStockClient({ items, categories, subcategories, ma
                   min="0"
                   step="0.01"
                   required
+                  placeholder={editInputBuyPriceMode === 'total' ? 'Prix Total (DZD)' : 'Prix Unitaire (DZD)'}
                   className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm transition focus:border-emerald-400 focus:outline-none"
                 />
+                {editInputBuyPriceMode === 'total' ? (
+                  <p className="text-[11px] text-emerald-700 font-semibold mt-1">
+                    Soit {(Number(editInputQuantity) > 0 && Number(editInputBuyPrice) > 0 ? (Number(editInputBuyPrice) / Number(editInputQuantity)).toLocaleString(undefined, { maximumFractionDigits: 4 }) : 0)} DZD / {editInputUnit}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-zinc-500 font-medium mt-1">
+                    Total Achat: <span className="font-bold text-zinc-900">{(Number(editInputQuantity) * Number(editInputBuyPrice)).toLocaleString()} DZD</span>
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-bold text-zinc-700 uppercase mb-1">{t('market.input.sellPrice') || 'Sell Price'} (/u)</label>
