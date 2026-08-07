@@ -88,3 +88,43 @@ export async function commitServiceTransaction(
     return { error: err.message || 'Something went wrong' };
   }
 }
+
+export async function addDirectServiceTransaction(
+  girlId: string,
+  serviceName: string,
+  amount: number,
+  transactionDate?: string
+) {
+  try {
+    if (!serviceName.trim()) return { error: 'Service name is required' };
+    if (amount <= 0) return { error: 'Amount must be greater than zero' };
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const dateToUse = transactionDate && transactionDate.trim() 
+      ? transactionDate 
+      : new Date().toISOString().split('T')[0];
+
+    const { error } = await supabase.from('transactions').insert({
+      girl_id: girlId,
+      profile_id: user.id,
+      type: 'service',
+      amount,
+      note: serviceName,
+      transaction_date: dateToUse,
+    });
+
+    if (error) return { error: error.message };
+
+    revalidatePath('/');
+    revalidatePath(`/girls/${girlId}`);
+    revalidatePath(`/girls/${girlId}/statistics`);
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error adding direct service transaction:', err);
+    return { error: err.message || 'Something went wrong' };
+  }
+}
+

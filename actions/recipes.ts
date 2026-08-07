@@ -135,6 +135,57 @@ export async function produceRecipe(recipeId: string, batches: number) {
   }
 }
 
+export async function consumeRecipeIngredients(recipeId: string, batches: number) {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    if (batches <= 0) return { error: 'Batches must be greater than zero' };
+
+    // 1. Fetch recipe ingredients
+    const { data: ingredients, error: ingError } = await supabase
+      .from('recipe_ingredients')
+      .select('raw_material_id, quantity_needed')
+      .eq('recipe_id', recipeId);
+
+    if (ingError || !ingredients || ingredients.length === 0) {
+      return { error: ingError?.message || 'No ingredients found for this recipe' };
+    }
+
+    // 2. Fetch current stock for raw materials
+    const itemIds = ingredients.map(i => i.raw_material_id);
+    const { data: rawMaterials, error: matError } = await supabase
+      .from('items')
+      .select('id, stock_quantity, name')
+      .in('id', itemIds);
+
+    if (matError || !rawMaterials) {
+      return { error: matError?.message || 'Failed to fetch ingredient stock' };
+    }
+
+    // 3. Deduct stock for each ingredient
+    const updatePromises = rawMaterials.map(item => {
+      const ing = ingredients.find(i => i.raw_material_id === item.id);
+      const consumedQty = (ing?.quantity_needed || 0) * batches;
+      const newStock = Number(item.stock_quantity) - Number(consumedQty);
+      return supabase
+        .from('items')
+        .update({ stock_quantity: newStock })
+        .eq('id', item.id);
+    });
+
+    await Promise.all(updatePromises);
+
+    revalidatePath('/stock');
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || 'Something went wrong' };
+  }
+}
+
+
 export async function updateItemSubcategory(itemId: string, subcategoryId: string | null) {
   try {
     const supabase = await createClient();

@@ -6,13 +6,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Item, ServiceCategory, ServiceSubcategory, MarketInput, Recipe, RecipeIngredient } from '@/lib/types';
 import { addMarketInput, updateItem, deleteItem, deleteMarketInput, updateMarketInput } from '@/actions/market_logic';
-import { addRecipe, produceRecipe, deleteRecipe, updateItemSubcategory, editRecipe } from '@/actions/recipes';
+import { addRecipe, produceRecipe, deleteRecipe, updateItemSubcategory, editRecipe, consumeRecipeIngredients } from '@/actions/recipes';
 import { formatDZD, formatDate } from '@/lib/utils/formatters';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import ItemCard from '@/components/service/ItemCard';
 import { uploadProductImage } from '@/lib/cloudinary';
 import BarcodeScanner from '@/components/stock/BarcodeScanner';
 import { createClient } from '@/lib/supabase/client';
+import { SearchableItemSelect } from '@/components/market/SearchableItemSelect';
 
 interface MarketStockClientProps {
   items: Item[];
@@ -2270,50 +2271,18 @@ function RecipeForm({ finishedProducts, allItems, categories, subcategories, onC
         </label>
         {ingredients.map((ing, idx) => (
           <div key={idx} className="flex gap-2 items-center">
-            <select
+            <SearchableItemSelect
               value={ing.raw_material_id}
-              onChange={e => {
+              onChange={val => {
                 const newIng = [...ingredients];
-                newIng[idx].raw_material_id = e.target.value;
+                newIng[idx].raw_material_id = val;
                 setIngredients(newIng);
               }}
-              required
-              className="flex-1 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-            >
-              <option value="">{t('market.input.chooseItem')}</option>
-              
-              {/* Raw Materials Group */}
-              {Object.keys(groupedItems.rawMap).length > 0 && (
-                <optgroup label={`── ${t('market.recipes.rawMaterials') || 'RAW MATERIALS'} ──`} className="bg-amber-50 text-amber-900 font-bold" />
-              )}
-              {Object.entries(groupedItems.rawMap)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([groupName, itemsInGroup]) => (
-                  <optgroup key={`raw-${groupName}`} label={`${groupName}`}>
-                    {itemsInGroup
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((item: any) => (
-                        <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
-                      ))}
-                  </optgroup>
-                ))}
-
-              {/* Finished Products Group */}
-              {Object.keys(groupedItems.finMap).length > 0 && (
-                <optgroup label={`── ${t('market.recipes.finishedProduct') || 'FINISHED PRODUCTS'} ──`} className="bg-emerald-50 text-emerald-900 font-bold" />
-              )}
-              {Object.entries(groupedItems.finMap)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([groupName, itemsInGroup]) => (
-                  <optgroup key={`fin-${groupName}`} label={`${groupName}`}>
-                    {itemsInGroup
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((item: any) => (
-                        <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
-                      ))}
-                  </optgroup>
-                ))}
-            </select>
+              allItems={allItems}
+              groupedItems={groupedItems}
+              placeholder={t('market.input.chooseItem') || '-- Choisir un article --'}
+              t={t}
+            />
             <input
               type="number"
               step="0.001"
@@ -2412,9 +2381,10 @@ function RecipeCard({ recipe, ingredients, onProduce, onEdit, t, tError }: any) 
       </div>
       <button
         onClick={onProduce}
-        className="w-full py-2.5 bg-amber-100 text-amber-800 hover:bg-amber-200 font-bold text-sm rounded-xl transition"
+        className="w-full py-2.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 font-bold text-sm rounded-xl transition flex items-center justify-center gap-2"
       >
-        {t('market.recipes.produceBtn') || 'Produce / Cook'}
+        <span>📦</span>
+        <span>{t('market.recipes.consumeBtn') || 'Consommer du Stock'}</span>
       </button>
     </div>
   );
@@ -2426,37 +2396,11 @@ function ProduceModal({ recipeId, recipe, ingredients, rawMaterials, categories,
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
-  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState('');
-
-  useEffect(() => {
-    if (recipe?.finished_product) {
-      const subId = recipe.finished_product.subcategory_id;
-      const sub = subcategories.find((s: any) => s.id === subId);
-      setSelectedCategoryId(sub ? sub.category_id : '');
-      setSelectedSubcategoryId(subId || '');
-    }
-  }, [recipe, subcategories]);
-
-  const handleProduce = (e: React.FormEvent) => {
+  const handleConsume = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      // 1. Update subcategory destination if changed
-      if (recipe?.finished_product) {
-        const currentSubId = recipe.finished_product.subcategory_id || '';
-        const targetSubId = selectedSubcategoryId || null;
-        if (currentSubId !== (targetSubId || '')) {
-          const updateRes = await updateItemSubcategory(recipe.finished_product.id, targetSubId);
-          if (updateRes?.error) {
-            setError(tError(updateRes.error));
-            return;
-          }
-        }
-      }
-
-      // 2. Call produce recipe
-      const res = await produceRecipe(recipeId, Number(batches));
+      const res = await consumeRecipeIngredients(recipeId, Number(batches));
       if (res?.error) setError(tError(res.error));
       else {
         onClose();
@@ -2480,87 +2424,53 @@ function ProduceModal({ recipeId, recipe, ingredients, rawMaterials, categories,
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl relative my-auto"
       >
-        <h2 className="text-xl font-bold text-zinc-900 mb-2">{t('market.recipes.produceTitle') || 'Produce Item'}</h2>
+        <h2 className="text-xl font-bold text-zinc-900 mb-1">
+          {t('market.recipes.consumeTitle') || 'Consommer du Stock'}
+        </h2>
         <p className="text-sm text-zinc-500 mb-6">
-          {recipe.finished_product?.name} • {(recipe.batch_quantity * batchesNum)} {t('market.recipes.unitsTotal') || 'units will be produced'}
+          {recipe.finished_product?.name} • Utilisation / Consommation pour {batchesNum} {batchesNum === 1 ? 'session' : 'sessions'}
         </p>
 
-        <form onSubmit={handleProduce} className="space-y-5">
+        <form onSubmit={handleConsume} className="space-y-5">
           <div>
             <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
-              {t('market.recipes.numberOfBatches') || 'Number of Batches'}
+              {t('market.recipes.numberOfBatches') || 'Nombre de répétitions / recettes'}
             </label>
             <input
               type="number"
               min="1"
+              step="1"
               value={batches}
               onChange={e => setBatches(e.target.value)}
               required
-              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none"
             />
           </div>
 
-          {/* Destination Category & Subcategory */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
-                {t('market.input.category') || 'Destination Category'}
-              </label>
-              <select
-                value={selectedCategoryId}
-                onChange={(e) => {
-                  setSelectedCategoryId(e.target.value);
-                  setSelectedSubcategoryId(''); // Reset subcategory when category changes
-                }}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-amber-500"
-              >
-                <option value="">{t('market.input.choose') || '-- Choose --'}</option>
-                {categories.map((cat: any) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.icon || '📁'} {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
-                {t('market.input.subcategory') || 'Destination Subcategory'}
-              </label>
-              <select
-                value={selectedSubcategoryId}
-                onChange={(e) => setSelectedSubcategoryId(e.target.value)}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-amber-500"
-                disabled={!selectedCategoryId}
-              >
-                <option value="">{t('market.input.choose') || '-- Choose --'}</option>
-                {subcategories
-                  .filter((s: any) => s.category_id === selectedCategoryId)
-                  .map((sub: any) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.icon || '📁'} {sub.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
-            <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-2">{t('market.recipes.materialsToDeduct') || 'Materials to deduct'}</h4>
-            <div className="space-y-2">
+          <div className="bg-emerald-50/70 rounded-2xl p-4 border border-emerald-100">
+            <h4 className="text-xs font-bold text-emerald-900 uppercase tracking-wider mb-3">
+              {t('market.recipes.materialsToDeduct') || 'Matières premières à déduire du stock'}
+            </h4>
+            <div className="space-y-2.5">
               {ingredients.map((ing: any) => {
                 const totalNeeded = ing.quantity_needed * batchesNum;
                 const raw = rawMaterials.find((r: Item) => r.id === ing.raw_material_id);
                 const currentStock = raw?.stock_quantity || 0;
+                const nextStock = currentStock - totalNeeded;
                 const isShort = currentStock < totalNeeded;
 
                 return (
-                  <div key={ing.id} className="flex justify-between items-center text-sm">
-                    <span className="text-zinc-700 font-medium">{ing.raw_material?.name}</span>
-                    <div className="text-right">
-                      <span className={`font-bold ${isShort ? 'text-rose-600' : 'text-zinc-900'}`}>
+                  <div key={ing.id} className="flex justify-between items-center text-xs bg-white p-2.5 rounded-xl border border-emerald-100/60 shadow-2xs">
+                    <div>
+                      <span className="text-zinc-800 font-bold block">{ing.raw_material?.name}</span>
+                      <span className="text-[10px] text-zinc-400">
+                        Actuel: {currentStock} {ing.raw_material?.unit} → Restant: {nextStock} {ing.raw_material?.unit}
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0 ml-2">
+                      <span className={`font-bold text-sm ${isShort ? 'text-rose-600' : 'text-emerald-700'}`}>
                         -{totalNeeded} {ing.raw_material?.unit}
                       </span>
-                      <p className="text-[10px] text-zinc-400">Stock: {currentStock}</p>
                     </div>
                   </div>
                 );
@@ -2572,10 +2482,10 @@ function ProduceModal({ recipeId, recipe, ingredients, rawMaterials, categories,
 
           <div className="flex gap-3 mt-6">
             <button type="button" onClick={onClose} className="flex-1 py-3 text-sm font-bold text-zinc-600 bg-zinc-100 rounded-xl hover:bg-zinc-200">
-              {t('market.recipes.cancel') || 'Cancel'}
+              {t('market.recipes.cancel') || 'Annuler'}
             </button>
-            <button type="submit" disabled={isPending} className="flex-1 py-3 bg-amber-500 text-white font-bold text-sm rounded-xl hover:bg-amber-600 disabled:opacity-50">
-              {isPending ? t('market.recipes.producing') || 'Processing...' : t('market.recipes.confirmProduce') || 'Confirm Production'}
+            <button type="submit" disabled={isPending} className="flex-1 py-3 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 disabled:opacity-50 shadow-md shadow-emerald-600/20">
+              {isPending ? t('market.recipes.producing') || 'Validation...' : t('market.recipes.confirmConsume') || 'Valider la déduction'}
             </button>
           </div>
         </form>

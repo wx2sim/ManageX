@@ -10,6 +10,7 @@ import ActionButtons from '../ActionButtons';
 import { TabType } from '../GirlProfileClientView';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { addNeed, completeResidentDemand, deleteNeed } from '@/actions/needs';
+import { addDirectServiceTransaction } from '@/actions/services';
 
 interface Props {
   girlId: string;
@@ -26,6 +27,13 @@ export default function OverviewTab({ girlId, girl, recentTransactions, onChange
 
   const isAdmin = girl?.account_type === 'admin';
 
+  // Add Direct Service Modal State
+  const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
+  const [serviceName, setServiceName] = useState('');
+  const [serviceAmountStr, setServiceAmountStr] = useState('');
+  const [serviceDate, setServiceDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [serviceError, setServiceError] = useState<string | null>(null);
+
   // Add Demand Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newDemandTitle, setNewDemandTitle] = useState('');
@@ -36,6 +44,34 @@ export default function OverviewTab({ girlId, girl, recentTransactions, onChange
   const [buyPriceStr, setBuyPriceStr] = useState('');
   const [sellPriceStr, setSellPriceStr] = useState('');
   const [resolveError, setResolveError] = useState<string | null>(null);
+
+  const handleDirectServiceSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setServiceError(null);
+    const amount = parseFloat(serviceAmountStr);
+
+    if (!serviceName.trim()) {
+      setServiceError('Veuillez entrer le nom du service.');
+      return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      setServiceError('Veuillez entrer un montant valide.');
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await addDirectServiceTransaction(girlId, serviceName, amount, serviceDate);
+      if (res?.error) {
+        setServiceError(res.error);
+      } else {
+        setServiceName('');
+        setServiceAmountStr('');
+        setServiceDate(new Date().toISOString().split('T')[0]);
+        setIsAddServiceModalOpen(false);
+        router.refresh();
+      }
+    });
+  };
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,7 +143,7 @@ export default function OverviewTab({ girlId, girl, recentTransactions, onChange
         {/* We recreate the ActionButtons locally so they switch tabs instead of routing */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <button
-            onClick={() => onChangeTab('service')}
+            onClick={() => setIsAddServiceModalOpen(true)}
             className="flex items-center justify-between rounded-3xl border border-pink-100 bg-white p-6 transition hover:-translate-y-1 hover:shadow-md hover:border-pink-200 group"
           >
             <div className="flex items-center gap-4">
@@ -150,6 +186,90 @@ export default function OverviewTab({ girlId, girl, recentTransactions, onChange
           )}
         </div>
       </div>
+
+      {/* MODAL: Add Direct Service */}
+      {isAddServiceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold text-zinc-900 mb-1">{t('overview.addService') || 'Ajouter un Service'}</h3>
+            <p className="text-xs text-zinc-500 mb-5">
+              Enregistrer un service pour <strong>{girl.name}</strong>.
+            </p>
+
+            <form onSubmit={handleDirectServiceSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Nom du service
+                </label>
+                <input
+                  type="text"
+                  value={serviceName}
+                  onChange={(e) => setServiceName(e.target.value)}
+                  disabled={isPending}
+                  className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 disabled:opacity-60"
+                  placeholder="Ex: Coiffure, Repas, Soins..."
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={serviceDate}
+                  onChange={(e) => setServiceDate(e.target.value)}
+                  disabled={isPending}
+                  className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 disabled:opacity-60"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Montant (DZD)
+                </label>
+                <input
+                  type="number"
+                  value={serviceAmountStr}
+                  onChange={(e) => setServiceAmountStr(e.target.value)}
+                  disabled={isPending}
+                  className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 disabled:opacity-60"
+                  placeholder="0"
+                  min="1"
+                  step="1"
+                  required
+                />
+              </div>
+
+              {serviceError && (
+                <div className="text-xs text-rose-600 font-medium bg-rose-50 p-3 rounded-xl border border-rose-100">
+                  {serviceError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddServiceModalOpen(false)}
+                  disabled={isPending}
+                  className="flex-1 rounded-xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200 disabled:opacity-50"
+                >
+                  {t('needs.cancel') || 'Annuler'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="flex-1 rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-pink-500/20 transition hover:bg-pink-700 disabled:opacity-50"
+                >
+                  {isPending ? 'Enregistrement...' : 'Ajouter'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Demands & Promises Section */}
       <div className="space-y-4 bg-white p-6 rounded-[2rem] border border-pink-100 shadow-[0_15px_45px_rgba(236,72,153,0.02)]">
