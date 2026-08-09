@@ -6,7 +6,8 @@ import { revalidatePath } from 'next/cache';
 export async function commitServiceTransaction(
   girlId: string,
   items: { item_id: string; item_name: string; quantity: number; unit_sell_price: number; unit_cost_price: number }[],
-  note?: string
+  note?: string,
+  transactionDate?: string
 ) {
   try {
     if (items.length === 0) return { error: 'Cart is empty' };
@@ -28,6 +29,10 @@ export async function commitServiceTransaction(
       return sum + (item.quantity * price);
     }, 0);
 
+    const dateToUse = transactionDate && transactionDate.trim()
+      ? transactionDate.trim()
+      : new Date().toISOString().split('T')[0];
+
     const { data: txData, error: txError } = await supabase
       .from('transactions')
       .insert({
@@ -36,7 +41,7 @@ export async function commitServiceTransaction(
         type: 'service',
         amount: totalAmount,
         note: note || `Crediée: ${items.map(i => `${i.quantity}x ${i.item_name}`).join(', ')}${isAdmin ? ' (P.Achat)' : ''}`,
-        transaction_date: new Date().toISOString().split('T')[0],
+        transaction_date: dateToUse,
       })
       .select('id')
       .single();

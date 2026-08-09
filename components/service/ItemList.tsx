@@ -23,6 +23,7 @@ export default function ItemList({ girlId, subcategoryId, items, girl }: ItemLis
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<Record<string, number>>({});
   const [note, setNote] = useState('');
+  const [transactionDate, setTransactionDate] = useState(() => new Date().toISOString().split('T')[0]);
   const { t } = useTranslation();
   
   // Add new item state
@@ -79,7 +80,7 @@ export default function ItemList({ girlId, subcategoryId, items, girl }: ItemLis
     if (cartDetails.length === 0) return;
 
     startTransition(async () => {
-      const res = await commitServiceTransaction(girlId, cartDetails, note);
+      const res = await commitServiceTransaction(girlId, cartDetails, note, transactionDate);
       if (res?.error) {
         alert(res.error);
       } else {
@@ -178,6 +179,20 @@ export default function ItemList({ girlId, subcategoryId, items, girl }: ItemLis
                 <div className="flex items-center justify-between font-bold">
                   <span className="text-sm text-zinc-700">{t('service.totalPrice')}</span>
                   <span className="text-lg text-pink-600">{formatDZD(cartTotal)}</span>
+                </div>
+
+                {/* Transaction Date */}
+                <div className="space-y-1">
+                  <label className="block text-xxs font-bold text-zinc-400 uppercase tracking-wider">
+                    {t('common.date') || 'Date de Transaction'}
+                  </label>
+                  <input
+                    type="date"
+                    value={transactionDate}
+                    onChange={(e) => setTransactionDate(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-pink-100 bg-zinc-50/50 px-3 py-2 text-xs outline-none transition focus:border-pink-300 font-medium text-zinc-800"
+                  />
                 </div>
 
                 {/* Checkout Note */}
