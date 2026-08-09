@@ -10,7 +10,8 @@ export async function addPayment(
   currency: 'dzd' | 'euro' = 'dzd',
   euroAmount: number = 0,
   exchangeRate: number = 0,
-  destination: 'service_debt' | 'recurring_debt' = 'service_debt'
+  destination: 'service_debt' | 'recurring_debt' = 'service_debt',
+  transactionDate?: string
 ) {
   try {
     if (amount <= 0 && currency === 'dzd') return { error: 'Amount must be greater than zero' };
@@ -19,6 +20,10 @@ export async function addPayment(
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
+
+    const dateToUse = transactionDate && transactionDate.trim() 
+      ? transactionDate 
+      : new Date().toISOString().split('T')[0];
 
     const { error } = await supabase.from('transactions').insert({
       girl_id: girlId,
@@ -30,7 +35,7 @@ export async function addPayment(
       exchange_rate: exchangeRate,
       destination,
       note: note || null,
-      transaction_date: new Date().toISOString().split('T')[0],
+      transaction_date: dateToUse,
     });
 
     if (error) return { error: error.message };
@@ -177,3 +182,90 @@ export async function undoTransaction(transactionId: string) {
     return { error: err.message || 'Something went wrong' };
   }
 }
+
+export async function updateTransaction(
+  transactionId: string,
+  data: {
+    amount?: number;
+    note?: string;
+    transaction_date?: string;
+    type?: string;
+    destination?: 'service_debt' | 'recurring_debt';
+  }
+) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    // 1. Fetch existing transaction
+    const { data: tx, error: fetchError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('id', transactionId)
+      .single();
+
+    if (fetchError || !tx) return { error: fetchError?.message || 'Transaction not found' };
+
+    const updatePayload: any = {};
+
+    if (data.amount !== undefined && !isNaN(data.amount) && data.amount > 0) {
+      if (tx.type === 'market_expense') {
+        updatePayload.amount = -Math.abs(data.amount);
+      } else {
+        updatePayload.amount = Math.abs(data.amount);
+      }
+    }
+
+    if (data.note !== undefined) {
+      updatePayload.note = data.note;
+    }
+
+    if (data.transaction_date && data.transaction_date.trim()) {
+      updatePayload.transaction_date = data.transaction_date.trim();
+    }
+
+    if (data.type) {
+      updatePayload.type = data.type;
+    }
+
+    if (data.destination) {
+      updatePayload.destination = data.destination;
+    }
+
+    // 2. Update transaction
+    const { error: updateError } = await supabase
+      .from('transactions')
+      .update(updatePayload)
+      .eq('id', transactionId);
+
+    if (updateError) return { error: updateError.message };
+
+    // 3. Sync bonuses table if applicable
+    if (tx.type === 'bonus') {
+      const bonusPayload: any = {};
+      if (updatePayload.amount !== undefined) bonusPayload.amount = updatePayload.amount;
+      if (updatePayload.note !== undefined) bonusPayload.note = updatePayload.note;
+      
+      if (Object.keys(bonusPayload).length > 0) {
+        await supabase
+          .from('bonuses')
+          .update(bonusPayload)
+          .eq('transaction_id', transactionId);
+      }
+    }
+
+    revalidatePath('/');
+    if (tx.girl_id) {
+      revalidatePath(`/girls/${tx.girl_id}`);
+      revalidatePath(`/girls/${tx.girl_id}/statistics`);
+    }
+    revalidatePath('/statistics');
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error updating transaction:', err);
+    return { error: err.message || 'Something went wrong' };
+  }
+}
+

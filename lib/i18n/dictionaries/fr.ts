@@ -371,7 +371,10 @@ export const fr = {
       numberOfBatches: 'Nombre de Lots',
       materialsToDeduct: 'Matières à Déduire',
       producing: 'Traitement...',
-      confirmProduce: 'Confirmer la Production'
+      confirmProduce: 'Confirmer la Production',
+      consumeBtn: 'Consommer du Stock',
+      consumeTitle: 'Consommer du Stock',
+      confirmConsume: 'Valider la déduction'
     },
     input: {
       title: 'Enregistrer Achats du Marché',

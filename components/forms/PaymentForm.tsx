@@ -14,6 +14,7 @@ export default function PaymentForm({ girlId }: PaymentFormProps) {
   const router = useRouter();
   const [currency, setCurrency] = useState<'dzd' | 'euro'>('dzd');
   const [destination, setDestination] = useState<'service_debt' | 'recurring_debt'>('service_debt');
+  const [transactionDate, setTransactionDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [amount, setAmount] = useState('');
   const [euroAmount, setEuroAmount] = useState('');
   const [exchangeRate, setExchangeRate] = useState('');
@@ -50,7 +51,8 @@ export default function PaymentForm({ girlId }: PaymentFormProps) {
         currency,
         currency === 'euro' ? parsedEuro : 0,
         currency === 'euro' ? parsedRate : 0,
-        destination
+        destination,
+        transactionDate
       );
 
       if (res?.error) {
@@ -76,6 +78,20 @@ export default function PaymentForm({ girlId }: PaymentFormProps) {
       </div>
 
       <div className="space-y-5">
+        {/* Date Field */}
+        <div>
+          <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+            {t('common.date') || 'Date du Paiement'}
+          </label>
+          <input
+            type="date"
+            value={transactionDate}
+            onChange={(e) => setTransactionDate(e.target.value)}
+            required
+            className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-900 transition focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100 font-medium"
+          />
+        </div>
+
         {/* Destination Toggle */}
         <div>
           <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">

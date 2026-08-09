@@ -48,7 +48,55 @@ export default function StatsTable({
   const [dzdExtractAmount, setDzdExtractAmount] = useState('');
   const [vaultExtractError, setVaultExtractError] = useState<string | null>(null);
 
+  // Edit Transaction State
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [editTxAmount, setEditTxAmount] = useState('');
+  const [editTxNote, setEditTxNote] = useState('');
+  const [editTxDate, setEditTxDate] = useState('');
+  const [editTxType, setEditTxType] = useState<TransactionType>('service');
+  const [editTxDestination, setEditTxDestination] = useState<'service_debt' | 'recurring_debt'>('service_debt');
+  const [editTxError, setEditTxError] = useState<string | null>(null);
+
   const { t } = useTranslation();
+
+  const handleEditClick = (tx: Transaction) => {
+    setEditingTx(tx);
+    setEditTxAmount(Math.abs(Number(tx.amount)).toString());
+    setEditTxNote(tx.note || '');
+    setEditTxDate(tx.transaction_date ? tx.transaction_date.split('T')[0] : '');
+    setEditTxType(tx.type);
+    setEditTxDestination((tx.destination as any) || 'service_debt');
+    setEditTxError(null);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTx) return;
+    setEditTxError(null);
+
+    const amount = parseFloat(editTxAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setEditTxError('Veuillez entrer un montant valide.');
+      return;
+    }
+
+    startTransition(async () => {
+      const { updateTransaction } = await import('@/actions/transactions');
+      const res = await updateTransaction(editingTx.id, {
+        amount,
+        note: editTxNote,
+        transaction_date: editTxDate,
+        type: editTxType,
+        destination: editTxType === 'payment' ? editTxDestination : undefined,
+      });
+
+      if (res?.error) {
+        setEditTxError(res.error);
+      } else {
+        setEditingTx(null);
+      }
+    });
+  };
 
   const isAdmin = girl?.account_type === 'admin';
 
@@ -672,14 +720,23 @@ export default function StatsTable({
                         {tx.note ? tx.note.replace('Purchased:', `${t('common.credited')}:`).replace('Crediée:', `${t('common.credited')}:`) : '—'}
                       </td>
                       <td className="py-4 px-4 text-right">
-                        <button
-                          onClick={() => handleUndo(tx.id)}
-                          disabled={undoingId === tx.id}
-                          className="text-zinc-400 hover:text-rose-500 transition disabled:opacity-50"
-                          title={t('common.undo') || 'Undo'}
-                        >
-                          {undoingId === tx.id ? '⏳' : '↩️'}
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleEditClick(tx)}
+                            className="text-zinc-400 hover:text-pink-600 transition"
+                            title={t('common.edit') || 'Modifier'}
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => handleUndo(tx.id)}
+                            disabled={undoingId === tx.id}
+                            className="text-zinc-400 hover:text-rose-500 transition disabled:opacity-50"
+                            title={t('common.undo') || 'Undo'}
+                          >
+                            {undoingId === tx.id ? '⏳' : '↩️'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -689,6 +746,127 @@ export default function StatsTable({
           </table>
         </div>
       </div>
+
+      {/* Edit Transaction Modal */}
+      {editingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xl font-bold text-zinc-900">Modifier l'Opération</h3>
+              <button
+                onClick={() => setEditingTx(null)}
+                className="text-zinc-400 hover:text-zinc-600 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-zinc-500 mb-5">
+              Modifier les détails de la transaction (Type, Date, Montant, Nom).
+            </p>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Type d'Opération
+                </label>
+                <select
+                  value={editTxType}
+                  onChange={(e) => setEditTxType(e.target.value as TransactionType)}
+                  className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-800 outline-none focus:ring-2 focus:ring-pink-500"
+                >
+                  <option value="service">🛒 Achat de Service</option>
+                  <option value="payment">💵 Paiement</option>
+                  <option value="bonus">🎁 Bonus / Cadeau</option>
+                  <option value="fixed_payment">⚙️ Charge Récurrente</option>
+                  <option value="duty">⚠️ Charge Spéciale (Duty)</option>
+                  <option value="instant_profit">📈 Profit Instantané</option>
+                </select>
+              </div>
+
+              {editTxType === 'payment' && (
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                    Cible de Paiement
+                  </label>
+                  <select
+                    value={editTxDestination}
+                    onChange={(e) => setEditTxDestination(e.target.value as 'service_debt' | 'recurring_debt')}
+                    className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-800 outline-none focus:ring-2 focus:ring-pink-500"
+                  >
+                    <option value="service_debt">Dette de Services</option>
+                    <option value="recurring_debt">Dette de Loyer / Frais Récurrents</option>
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={editTxDate}
+                  onChange={(e) => setEditTxDate(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-pink-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Nom / Description / Référence
+                </label>
+                <input
+                  type="text"
+                  value={editTxNote}
+                  onChange={(e) => setEditTxNote(e.target.value)}
+                  placeholder="Note ou nom de l'opération"
+                  className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm text-zinc-800 outline-none focus:ring-2 focus:ring-pink-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Montant (DZD)
+                </label>
+                <input
+                  type="number"
+                  value={editTxAmount}
+                  onChange={(e) => setEditTxAmount(e.target.value)}
+                  min="0.01"
+                  step="any"
+                  required
+                  className="w-full rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-pink-500"
+                />
+              </div>
+
+              {editTxError && (
+                <div className="text-xs text-rose-600 font-medium bg-rose-50 p-3 rounded-xl border border-rose-100">
+                  {editTxError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingTx(null)}
+                  disabled={isExtracting}
+                  className="flex-1 rounded-xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200 disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={isExtracting}
+                  className="flex-1 rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-pink-500/20 transition hover:bg-pink-700 disabled:opacity-50"
+                >
+                  {isExtracting ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

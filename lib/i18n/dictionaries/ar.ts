@@ -373,7 +373,10 @@ export const ar: typeof fr = {
       numberOfBatches: 'عدد الدفعات',
       materialsToDeduct: 'المواد التي سيتم خصمها',
       producing: 'جاري المعالجة...',
-      confirmProduce: 'تأكيد الإنتاج'
+      confirmProduce: 'تأكيد الإنتاج',
+      consumeBtn: 'استهلاك من المخزون',
+      consumeTitle: 'استهلاك من المخزون',
+      confirmConsume: 'تأكيد الخصم'
     },
     input: {
       title: 'تسجيل المشتريات من السوق',
