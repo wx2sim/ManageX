@@ -183,6 +183,22 @@ export async function undoTransaction(transactionId: string) {
   }
 }
 
+export async function getTransactionItems(transactionId: string) {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('transaction_items')
+      .select('*')
+      .eq('transaction_id', transactionId);
+
+    if (error) return { error: error.message, items: [] };
+    return { items: data || [] };
+  } catch (err: any) {
+    console.error('Error fetching transaction items:', err);
+    return { error: err.message, items: [] };
+  }
+}
+
 export async function updateTransaction(
   transactionId: string,
   data: {
@@ -191,6 +207,13 @@ export async function updateTransaction(
     transaction_date?: string;
     type?: string;
     destination?: 'service_debt' | 'recurring_debt';
+    stockItem?: {
+      item_id: string;
+      item_name: string;
+      quantity: number;
+      unit_sell_price: number;
+      unit_cost_price: number;
+    } | null;
   }
 ) {
   try {
@@ -206,6 +229,62 @@ export async function updateTransaction(
       .single();
 
     if (fetchError || !tx) return { error: fetchError?.message || 'Transaction not found' };
+
+    // 2. Handle restocking of existing linked items before applying changes
+    const { data: existingItems } = await supabase
+      .from('transaction_items')
+      .select('item_id, quantity')
+      .eq('transaction_id', transactionId);
+
+    if (existingItems && existingItems.length > 0) {
+      const itemIds = existingItems.map(i => i.item_id);
+      const { data: currentItems } = await supabase
+        .from('items')
+        .select('id, stock_quantity')
+        .in('id', itemIds);
+
+      if (currentItems && currentItems.length > 0) {
+        const restockPromises = currentItems.map(curr => {
+          const consumed = existingItems.find(i => i.item_id === curr.id)?.quantity || 0;
+          return supabase
+            .from('items')
+            .update({ stock_quantity: curr.stock_quantity + consumed })
+            .eq('id', curr.id);
+        });
+        await Promise.all(restockPromises);
+      }
+
+      // Clear existing transaction_items records
+      await supabase
+        .from('transaction_items')
+        .delete()
+        .eq('transaction_id', transactionId);
+    }
+
+    // 3. If a new stockItem is specified and linked, insert item and deduct stock
+    if (data.stockItem && data.stockItem.item_id && data.stockItem.quantity > 0) {
+      await supabase.from('transaction_items').insert({
+        transaction_id: transactionId,
+        item_id: data.stockItem.item_id,
+        item_name: data.stockItem.item_name,
+        quantity: data.stockItem.quantity,
+        unit_sell_price: data.stockItem.unit_sell_price,
+        unit_cost_price: data.stockItem.unit_cost_price,
+      });
+
+      const { data: currentItem } = await supabase
+        .from('items')
+        .select('id, stock_quantity')
+        .eq('id', data.stockItem.item_id)
+        .single();
+
+      if (currentItem) {
+        await supabase
+          .from('items')
+          .update({ stock_quantity: currentItem.stock_quantity - data.stockItem.quantity })
+          .eq('id', currentItem.id);
+      }
+    }
 
     const updatePayload: any = {};
 
@@ -233,7 +312,7 @@ export async function updateTransaction(
       updatePayload.destination = data.destination;
     }
 
-    // 2. Update transaction
+    // 4. Update transaction record
     const { error: updateError } = await supabase
       .from('transactions')
       .update(updatePayload)
@@ -241,12 +320,12 @@ export async function updateTransaction(
 
     if (updateError) return { error: updateError.message };
 
-    // 3. Sync bonuses table if applicable
+    // 5. Sync bonuses table if applicable
     if (tx.type === 'bonus') {
       const bonusPayload: any = {};
       if (updatePayload.amount !== undefined) bonusPayload.amount = updatePayload.amount;
       if (updatePayload.note !== undefined) bonusPayload.note = updatePayload.note;
-      
+
       if (Object.keys(bonusPayload).length > 0) {
         await supabase
           .from('bonuses')
@@ -261,6 +340,7 @@ export async function updateTransaction(
       revalidatePath(`/girls/${tx.girl_id}/statistics`);
     }
     revalidatePath('/statistics');
+    revalidatePath('/stock');
 
     return { success: true };
   } catch (err: any) {
@@ -268,4 +348,5 @@ export async function updateTransaction(
     return { error: err.message || 'Something went wrong' };
   }
 }
+
 

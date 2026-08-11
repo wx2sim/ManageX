@@ -57,9 +57,28 @@ export default function StatsTable({
   const [editTxDestination, setEditTxDestination] = useState<'service_debt' | 'recurring_debt'>('service_debt');
   const [editTxError, setEditTxError] = useState<string | null>(null);
 
+  // Stock Item Linking State for Transaction Edit
+  const [activeStockItems, setActiveStockItems] = useState<any[]>([]);
+  const [linkToStock, setLinkToStock] = useState(false);
+  const [selectedStockItemId, setSelectedStockItemId] = useState('');
+  const [stockQuantity, setStockQuantity] = useState(1);
+  const [stockUnitPrice, setStockUnitPrice] = useState(0);
+  const [isLoadingStock, setIsLoadingStock] = useState(false);
+  const [stockSearchTerm, setStockSearchTerm] = useState('');
+
+  const filteredStockItems = useMemo(() => {
+    if (!stockSearchTerm.trim()) return activeStockItems;
+    const term = stockSearchTerm.toLowerCase().trim();
+    return activeStockItems.filter(i =>
+      i.name.toLowerCase().includes(term)
+    );
+  }, [activeStockItems, stockSearchTerm]);
+
   const { t } = useTranslation();
 
-  const handleEditClick = (tx: Transaction) => {
+  const isAdmin = girl?.account_type === 'admin';
+
+  const handleEditClick = async (tx: Transaction) => {
     setEditingTx(tx);
     setEditTxAmount(Math.abs(Number(tx.amount)).toString());
     setEditTxNote(tx.note || '');
@@ -67,6 +86,40 @@ export default function StatsTable({
     setEditTxType(tx.type);
     setEditTxDestination((tx.destination as any) || 'service_debt');
     setEditTxError(null);
+
+    setLinkToStock(false);
+    setSelectedStockItemId('');
+    setStockQuantity(1);
+    setStockUnitPrice(0);
+    setStockSearchTerm('');
+    setIsLoadingStock(true);
+
+    try {
+      const { getActiveItems } = await import('@/actions/items');
+      const { getTransactionItems } = await import('@/actions/transactions');
+
+      const [itemsRes, txItemsRes] = await Promise.all([
+        getActiveItems(),
+        getTransactionItems(tx.id)
+      ]);
+
+      if (itemsRes?.items) {
+        setActiveStockItems(itemsRes.items);
+      }
+
+      if (txItemsRes?.items && txItemsRes.items.length > 0) {
+        const txItem = txItemsRes.items[0];
+        setLinkToStock(true);
+        setSelectedStockItemId(txItem.item_id);
+        setStockQuantity(txItem.quantity || 1);
+        const unitP = isAdmin ? (txItem.unit_cost_price || 0) : (txItem.unit_sell_price || 0);
+        setStockUnitPrice(unitP);
+      }
+    } catch (e) {
+      console.error('Error fetching stock details for edit:', e);
+    } finally {
+      setIsLoadingStock(false);
+    }
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {
@@ -82,12 +135,28 @@ export default function StatsTable({
 
     startTransition(async () => {
       const { updateTransaction } = await import('@/actions/transactions');
+
+      let stockItemPayload = null;
+      if (editTxType === 'service' && linkToStock && selectedStockItemId) {
+        const selectedItem = activeStockItems.find(i => i.id === selectedStockItemId);
+        if (selectedItem) {
+          stockItemPayload = {
+            item_id: selectedItem.id,
+            item_name: selectedItem.name,
+            quantity: Number(stockQuantity) || 1,
+            unit_sell_price: stockUnitPrice || selectedItem.sell_price || 0,
+            unit_cost_price: selectedItem.cost_price || 0,
+          };
+        }
+      }
+
       const res = await updateTransaction(editingTx.id, {
         amount,
         note: editTxNote,
         transaction_date: editTxDate,
         type: editTxType,
         destination: editTxType === 'payment' ? editTxDestination : undefined,
+        stockItem: stockItemPayload,
       });
 
       if (res?.error) {
@@ -98,7 +167,6 @@ export default function StatsTable({
     });
   };
 
-  const isAdmin = girl?.account_type === 'admin';
 
   // 1. Filter Transactions
   const filteredTransactions = useMemo(() => {
@@ -782,6 +850,138 @@ export default function StatsTable({
                   <option value="instant_profit">📈 Profit Instantané</option>
                 </select>
               </div>
+
+              {editTxType === 'service' && (
+                <div className="bg-pink-50/50 border border-pink-100 rounded-2xl p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="linkToStockToggle" className="text-xs font-bold text-pink-900 uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
+                      <span>📦</span> Lier un Produit du Stock
+                    </label>
+                    <input
+                      type="checkbox"
+                      id="linkToStockToggle"
+                      checked={linkToStock}
+                      onChange={(e) => {
+                        setLinkToStock(e.target.checked);
+                        if (!e.target.checked) {
+                          setSelectedStockItemId('');
+                        }
+                      }}
+                      className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500 cursor-pointer"
+                    />
+                  </div>
+
+                  {linkToStock && (
+                    <>
+                      {isLoadingStock ? (
+                        <p className="text-xs text-zinc-500 animate-pulse">Chargement des produits du stock...</p>
+                      ) : (
+                        <div className="space-y-3 pt-1">
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-[11px] font-semibold text-zinc-600">
+                                Produit en Stock
+                              </label>
+                              {stockSearchTerm && (
+                                <span className="text-[10px] text-pink-600 font-bold">
+                                  {filteredStockItems.length} trouvé(s)
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="relative mb-2">
+                              <input
+                                type="text"
+                                value={stockSearchTerm}
+                                onChange={(e) => setStockSearchTerm(e.target.value)}
+                                placeholder="🔍 Rechercher un produit..."
+                                className="w-full rounded-xl border border-pink-200 bg-white pl-3 pr-8 py-1.5 text-xs text-zinc-800 outline-none focus:ring-2 focus:ring-pink-500 placeholder:text-zinc-400 font-medium"
+                              />
+                              {stockSearchTerm && (
+                                <button
+                                  type="button"
+                                  onClick={() => setStockSearchTerm('')}
+                                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 text-xs font-bold"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+
+                            <select
+                              value={selectedStockItemId}
+                              onChange={(e) => {
+                                const itemId = e.target.value;
+                                setSelectedStockItemId(itemId);
+                                const selectedItem = activeStockItems.find(i => i.id === itemId);
+                                if (selectedItem) {
+                                  const price = isAdmin ? selectedItem.cost_price : selectedItem.sell_price;
+                                  const qty = stockQuantity || 1;
+                                  setStockUnitPrice(price);
+                                  setEditTxAmount((price * qty).toString());
+                                  setEditTxNote(`Crediée: ${qty}x ${selectedItem.name}${isAdmin ? ' (P.Achat)' : ''}`);
+                                }
+                              }}
+                              className="w-full rounded-xl border border-pink-200 bg-white px-3 py-2 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-pink-500"
+                            >
+                              <option value="">-- Sélectionner un produit ({filteredStockItems.length}) --</option>
+                              {filteredStockItems.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.name} (En stock: {item.stock_quantity}) — {isAdmin ? item.cost_price : item.sell_price} DZD
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {selectedStockItemId && (
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-[11px] font-semibold text-zinc-600 mb-1">
+                                  Quantité
+                                </label>
+                                <input
+                                  type="number"
+                                  step="any"
+                                  min="0.001"
+                                  value={stockQuantity}
+                                  onChange={(e) => {
+                                    const qty = Math.max(0.001, parseFloat(e.target.value) || 0.001);
+                                    setStockQuantity(qty);
+                                    const selectedItem = activeStockItems.find(i => i.id === selectedStockItemId);
+                                    if (selectedItem) {
+                                      const price = stockUnitPrice || (isAdmin ? selectedItem.cost_price : selectedItem.sell_price);
+                                      setEditTxAmount((price * qty).toString());
+                                      setEditTxNote(`Crediée: ${qty}x ${selectedItem.name}${isAdmin ? ' (P.Achat)' : ''}`);
+                                    }
+                                  }}
+                                  className="w-full rounded-xl border border-pink-200 bg-white px-3 py-2 text-xs font-bold text-zinc-800 outline-none focus:ring-2 focus:ring-pink-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-zinc-600 mb-1">
+                                  Prix Unitaire (DZD)
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={stockUnitPrice}
+                                  onChange={(e) => {
+                                    const uPrice = parseFloat(e.target.value) || 0;
+                                    setStockUnitPrice(uPrice);
+                                    setEditTxAmount((uPrice * stockQuantity).toString());
+                                  }}
+                                  className="w-full rounded-xl border border-pink-200 bg-white px-3 py-2 text-xs font-bold text-zinc-800 outline-none focus:ring-2 focus:ring-pink-500"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
               {editTxType === 'payment' && (
                 <div>

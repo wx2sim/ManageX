@@ -194,3 +194,24 @@ export async function deleteItem(itemId: string) {
     return { error: err.message || 'Something went wrong' };
   }
 }
+
+/**
+ * Fetches all active stock items.
+ */
+export async function getActiveItems() {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('items')
+      .select('id, name, sell_price, cost_price, stock_quantity, image_url')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (error) return { error: error.message, items: [] };
+    return { items: data || [] };
+  } catch (err: any) {
+    console.error('Error fetching active items:', err);
+    return { error: err.message, items: [] };
+  }
+}
+

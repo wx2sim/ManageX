@@ -21,7 +21,7 @@ interface ItemListProps {
 export default function ItemList({ girlId, subcategoryId, items, girl }: ItemListProps) {
   const router = useRouter();
   const [search, setSearch] = useState('');
-  const [cart, setCart] = useState<Record<string, number>>({});
+  const [cart, setCart] = useState<Record<string, { quantity: number; customPrice?: number }>>({});
   const [note, setNote] = useState('');
   const [transactionDate, setTransactionDate] = useState(() => new Date().toISOString().split('T')[0]);
   const { t } = useTranslation();
@@ -47,30 +47,61 @@ export default function ItemList({ girlId, subcategoryId, items, girl }: ItemLis
       if (newQty <= 0) {
         delete next[itemId];
       } else {
-        next[itemId] = newQty;
+        const existing = next[itemId] || { quantity: 0 };
+        next[itemId] = { ...existing, quantity: Math.round(newQty * 1000) / 1000 };
       }
       return next;
     });
   };
 
-  // Compile cart details
-  const cartDetails = useMemo(() => {
-    return Object.entries(cart).map(([itemId, qty]) => {
-      const targetItem = items.find((i) => i.id === itemId)!;
-      return {
-        item_id: targetItem.id,
-        item_name: targetItem.name,
-        quantity: qty,
-        unit_sell_price: targetItem.sell_price,
-        unit_cost_price: targetItem.cost_price,
-      };
+  const handleCustomPriceChange = (itemId: string, newPrice: number | undefined) => {
+    setCart((prev) => {
+      const next = { ...prev };
+      if (next[itemId]) {
+        next[itemId] = { ...next[itemId], customPrice: newPrice };
+      }
+      return next;
     });
-  }, [cart, items]);
+  };
 
   const isAdmin = girl?.account_type === 'admin';
 
+  // Compile cart details
+  const cartDetails = useMemo(() => {
+    return Object.entries(cart).map(([itemId, config]) => {
+      const targetItem = items.find((i) => i.id === itemId)!;
+      const baseUnitPrice = isAdmin ? targetItem.cost_price : targetItem.sell_price;
+
+      let effectiveUnitSellPrice = targetItem.sell_price;
+      let effectiveUnitCostPrice = targetItem.cost_price;
+
+      if (config.customPrice !== undefined && config.quantity > 0) {
+        const unitOverride = config.customPrice / config.quantity;
+        if (isAdmin) {
+          effectiveUnitCostPrice = unitOverride;
+        } else {
+          effectiveUnitSellPrice = unitOverride;
+        }
+      }
+
+      return {
+        item_id: targetItem.id,
+        item_name: targetItem.name,
+        quantity: config.quantity,
+        unit_sell_price: effectiveUnitSellPrice,
+        unit_cost_price: effectiveUnitCostPrice,
+        customPrice: config.customPrice,
+        baseUnitPrice,
+        unit: targetItem.unit || 'Kg',
+      };
+    });
+  }, [cart, items, isAdmin]);
+
   const cartTotal = useMemo(() => {
     return cartDetails.reduce((sum, item) => {
+      if (item.customPrice !== undefined) {
+        return sum + item.customPrice;
+      }
       const price = isAdmin ? item.unit_cost_price : item.unit_sell_price;
       return sum + (item.quantity * price);
     }, 0);
@@ -80,7 +111,15 @@ export default function ItemList({ girlId, subcategoryId, items, girl }: ItemLis
     if (cartDetails.length === 0) return;
 
     startTransition(async () => {
-      const res = await commitServiceTransaction(girlId, cartDetails, note, transactionDate);
+      const payloadItems = cartDetails.map(d => ({
+        item_id: d.item_id,
+        item_name: d.item_name,
+        quantity: d.quantity,
+        unit_sell_price: d.unit_sell_price,
+        unit_cost_price: d.unit_cost_price,
+      }));
+
+      const res = await commitServiceTransaction(girlId, payloadItems, note, transactionDate);
       if (res?.error) {
         alert(res.error);
       } else {
@@ -91,8 +130,6 @@ export default function ItemList({ girlId, subcategoryId, items, girl }: ItemLis
       }
     });
   };
-
-  // Note: addItem has been replaced by the MarketStockClient embedded in ServiceAddProductModal
 
   return (
     <div className="space-y-6">
@@ -130,7 +167,7 @@ export default function ItemList({ girlId, subcategoryId, items, girl }: ItemLis
                 <ItemCard
                   key={item.id}
                   item={item}
-                  quantity={cart[item.id] || 0}
+                  quantity={cart[item.id]?.quantity || 0}
                   onQuantityChange={handleQuantityChange}
                   isAdmin={isAdmin}
                   viewType="service"
@@ -158,18 +195,103 @@ export default function ItemList({ girlId, subcategoryId, items, girl }: ItemLis
               <p className="text-sm text-zinc-400 py-6 text-center">{t('service.cartEmpty')}</p>
             ) : (
               <>
-                <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
                   {cartDetails.map((entry) => (
-                    <div key={entry.item_id} className="flex items-center justify-between text-xs py-1">
-                      <div className="min-w-0 flex-1">
-                        <span className="font-semibold text-zinc-900 line-clamp-1">{entry.item_name}</span>
-                        <span className="text-zinc-400 mt-0.5 block">
-                          {entry.quantity} × {formatDZD(isAdmin ? entry.unit_cost_price : entry.unit_sell_price)}
+                    <div key={entry.item_id} className="bg-pink-50/40 border border-pink-100/80 rounded-2xl p-3 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-zinc-900 text-xs truncate max-w-[170px]" title={entry.item_name}>
+                          {entry.item_name}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(entry.item_id, 0)}
+                          className="text-zinc-400 hover:text-rose-500 text-xs font-bold transition p-1"
+                          title="Supprimer du panier"
+                        >
+                          🗑️
+                        </button>
                       </div>
-                      <span className="font-semibold text-zinc-800 shrink-0 ml-3">
-                        {formatDZD(entry.quantity * (isAdmin ? entry.unit_cost_price : entry.unit_sell_price))}
-                      </span>
+
+                      {/* Quantity & Preset buttons */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px] text-zinc-500 font-semibold">
+                          <span>Quantité ({entry.unit})</span>
+                          <span className="text-zinc-400 font-normal">Base: {formatDZD(entry.baseUnitPrice)}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="any"
+                            min="0.001"
+                            value={entry.quantity}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              handleQuantityChange(entry.item_id, isNaN(val) ? 0 : val);
+                            }}
+                            className="w-24 rounded-xl border border-pink-200 bg-white px-2.5 py-1 text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-pink-500"
+                          />
+
+                          {/* Quick Weight Presets */}
+                          <div className="flex items-center gap-1 overflow-x-auto">
+                            <button
+                              type="button"
+                              onClick={() => handleQuantityChange(entry.item_id, 0.1)}
+                              className={`px-1.5 py-0.5 rounded-lg text-[10px] font-bold border transition ${
+                                entry.quantity === 0.1 ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-zinc-600 border-zinc-200 hover:bg-pink-50'
+                              }`}
+                            >
+                              100g
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuantityChange(entry.item_id, 0.25)}
+                              className={`px-1.5 py-0.5 rounded-lg text-[10px] font-bold border transition ${
+                                entry.quantity === 0.25 ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-zinc-600 border-zinc-200 hover:bg-pink-50'
+                              }`}
+                            >
+                              250g
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuantityChange(entry.item_id, 0.5)}
+                              className={`px-1.5 py-0.5 rounded-lg text-[10px] font-bold border transition ${
+                                entry.quantity === 0.5 ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-zinc-600 border-zinc-200 hover:bg-pink-50'
+                              }`}
+                            >
+                              500g
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuantityChange(entry.item_id, 1)}
+                              className={`px-1.5 py-0.5 rounded-lg text-[10px] font-bold border transition ${
+                                entry.quantity === 1 ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-zinc-600 border-zinc-200 hover:bg-pink-50'
+                              }`}
+                            >
+                              1kg
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Line Price Field */}
+                      <div className="flex items-center justify-between pt-1 border-t border-pink-100/60">
+                        <span className="text-[11px] font-semibold text-zinc-600">Prix Total Ligne</span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            value={entry.customPrice !== undefined ? entry.customPrice : (entry.quantity * entry.baseUnitPrice)}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              handleCustomPriceChange(entry.item_id, isNaN(val) ? undefined : val);
+                            }}
+                            className="w-24 text-right rounded-xl border border-pink-200 bg-white px-2 py-1 text-xs font-bold text-pink-700 outline-none focus:ring-2 focus:ring-pink-500"
+                          />
+                          <span className="text-[10px] font-bold text-zinc-500">DZD</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
