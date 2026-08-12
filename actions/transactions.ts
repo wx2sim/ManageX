@@ -148,15 +148,31 @@ export async function undoTransaction(transactionId: string) {
         const itemIds = items.map(i => i.item_id);
         const { data: currentItems } = await supabase
           .from('items')
-          .select('id, stock_quantity')
+          .select('id, stock_quantity, sell_price, cost_price')
           .in('id', itemIds);
 
         if (currentItems && currentItems.length > 0) {
           const updatePromises = currentItems.map(curr => {
             const consumed = items.find(i => i.item_id === curr.id)?.quantity || 0;
+            const oldStock = Number(curr.stock_quantity) || 0;
+            const newStock = Math.round((oldStock + consumed) * 1000) / 1000;
+
+            let newSellPrice = Number(curr.sell_price) || 0;
+            let newCostPrice = Number(curr.cost_price) || 0;
+
+            if (oldStock > 0) {
+              const ratio = newStock / oldStock;
+              newSellPrice = Math.round((newSellPrice * ratio) * 100) / 100;
+              newCostPrice = Math.round((newCostPrice * ratio) * 100) / 100;
+            }
+
             return supabase
               .from('items')
-              .update({ stock_quantity: curr.stock_quantity + consumed }) // RESTOCK
+              .update({
+                stock_quantity: newStock,
+                sell_price: newSellPrice,
+                cost_price: newCostPrice,
+              }) // RESTOCK
               .eq('id', curr.id);
           });
           await Promise.all(updatePromises);
@@ -240,15 +256,31 @@ export async function updateTransaction(
       const itemIds = existingItems.map(i => i.item_id);
       const { data: currentItems } = await supabase
         .from('items')
-        .select('id, stock_quantity')
+        .select('id, stock_quantity, sell_price, cost_price')
         .in('id', itemIds);
 
       if (currentItems && currentItems.length > 0) {
         const restockPromises = currentItems.map(curr => {
           const consumed = existingItems.find(i => i.item_id === curr.id)?.quantity || 0;
+          const oldStock = Number(curr.stock_quantity) || 0;
+          const newStock = Math.round((oldStock + consumed) * 1000) / 1000;
+
+          let newSellPrice = Number(curr.sell_price) || 0;
+          let newCostPrice = Number(curr.cost_price) || 0;
+
+          if (oldStock > 0) {
+            const ratio = newStock / oldStock;
+            newSellPrice = Math.round((newSellPrice * ratio) * 100) / 100;
+            newCostPrice = Math.round((newCostPrice * ratio) * 100) / 100;
+          }
+
           return supabase
             .from('items')
-            .update({ stock_quantity: curr.stock_quantity + consumed })
+            .update({
+              stock_quantity: newStock,
+              sell_price: newSellPrice,
+              cost_price: newCostPrice,
+            })
             .eq('id', curr.id);
         });
         await Promise.all(restockPromises);
@@ -274,14 +306,30 @@ export async function updateTransaction(
 
       const { data: currentItem } = await supabase
         .from('items')
-        .select('id, stock_quantity')
+        .select('id, stock_quantity, sell_price, cost_price')
         .eq('id', data.stockItem.item_id)
         .single();
 
       if (currentItem) {
+        const oldStock = Number(currentItem.stock_quantity) || 0;
+        const newStock = Math.max(0, Math.round((oldStock - data.stockItem.quantity) * 1000) / 1000);
+
+        let newSellPrice = Number(currentItem.sell_price) || 0;
+        let newCostPrice = Number(currentItem.cost_price) || 0;
+
+        if (oldStock > 0) {
+          const ratio = newStock / oldStock;
+          newSellPrice = Math.max(0, Math.round((newSellPrice * ratio) * 100) / 100);
+          newCostPrice = Math.max(0, Math.round((newCostPrice * ratio) * 100) / 100);
+        }
+
         await supabase
           .from('items')
-          .update({ stock_quantity: currentItem.stock_quantity - data.stockItem.quantity })
+          .update({
+            stock_quantity: newStock,
+            sell_price: newSellPrice,
+            cost_price: newCostPrice,
+          })
           .eq('id', currentItem.id);
       }
     }

@@ -58,7 +58,7 @@ export default function ItemCard({
   // --- SERVICE FLOW VIEW LAYOUT (100x100px square card, name below) ---
   if (viewType === 'service') {
     const isOutOfStock = item.stock_quantity <= 0;
-    const remainingStock = item.stock_quantity - quantity;
+    const remainingStock = Math.round((item.stock_quantity - quantity) * 1000) / 1000;
     const disableAdd = remainingStock <= 0;
 
     const handleIncrement = (e: React.MouseEvent) => {
@@ -152,7 +152,7 @@ export default function ItemCard({
   // --- LIST VIEW LAYOUT (80x80px rounded image/icon container) ---
   if (viewType === 'list') {
     const isOutOfStock = item.stock_quantity <= 0;
-    const remainingStock = item.stock_quantity - quantity;
+    const remainingStock = Math.round((item.stock_quantity - quantity) * 1000) / 1000;
     const disableAdd = remainingStock <= 0;
 
     const handleIncrement = () => {

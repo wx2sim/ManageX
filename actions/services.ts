@@ -70,16 +70,31 @@ export async function commitServiceTransaction(
     const itemIds = items.map(i => i.item_id);
     const { data: currentItems } = await supabase
       .from('items')
-      .select('id, stock_quantity')
+      .select('id, stock_quantity, sell_price, cost_price')
       .in('id', itemIds);
 
     if (currentItems && currentItems.length > 0) {
       const updatePromises = currentItems.map(curr => {
         const consumed = items.find(i => i.item_id === curr.id)?.quantity || 0;
-        const newStock = Math.round((curr.stock_quantity - consumed) * 1000) / 1000;
+        const oldStock = Number(curr.stock_quantity) || 0;
+        const newStock = Math.max(0, Math.round((oldStock - consumed) * 1000) / 1000);
+
+        let newSellPrice = Number(curr.sell_price) || 0;
+        let newCostPrice = Number(curr.cost_price) || 0;
+
+        if (oldStock > 0) {
+          const ratio = newStock / oldStock;
+          newSellPrice = Math.max(0, Math.round((newSellPrice * ratio) * 100) / 100);
+          newCostPrice = Math.max(0, Math.round((newCostPrice * ratio) * 100) / 100);
+        }
+
         return supabase
           .from('items')
-          .update({ stock_quantity: newStock })
+          .update({
+            stock_quantity: newStock,
+            sell_price: newSellPrice,
+            cost_price: newCostPrice,
+          })
           .eq('id', curr.id);
       });
       await Promise.all(updatePromises);
